@@ -8,30 +8,32 @@ This file is the persistent handover for the next development session. Before ch
 
 Repository: sarkarshivaditya-lab/Market_analyzer
 Default branch: main
-Latest audited commit: f68c846e4ae025993ab30a3e78027329cdea3ed9 (NSE corporate-action reconciliation tooling)
-Latest commit message: test corporate action price discontinuity audit
+Latest audited commit: a8ef4650b4a0be05f49d114067981368265229ef (dashboard runtime serialization fix)
+Latest commit message: reuse serialized dashboard signals
 
 The repository is an AI-driven Indian-market financial intelligence and portfolio-decision platform. It currently contains market ingestion, technical/context features, multi-horizon forecasting, crash-risk classification, regime detection, anomaly scoring, a stacked ensemble, probability calibration, portfolio optimization, backtesting, TimeGAN stress testing, FastAPI dashboard, paper trading, and guarded Zerodha execution scaffolding.
 
 ## Current-session audit and Goal 3 milestone
 
-Audit date: 2026-09-26.
+Audit date: 2026-09-27.
 
 The live main branch was re-audited before dashboard work. The handover's recorded latest audited commit (45b0763e...) was stale; the actual starting HEAD was 8d6106503a70e03216b26514a3db356d6ee95293, which already included the NSE CM-UDiFF provider and its tests. src/market_analyzer/main.py also exists and is the current orchestrator; the earlier concern that main.py was difficult to retrieve is no longer applicable.
 
-The dashboard milestone has now been implemented. /api/state remains unchanged as the primary endpoint, with backward-compatible state persistence and additional market/performance fields. The dashboard now uses browser-native canvas/SVG-free rendering with no paid chart dependency. It provides selected NSE price/candlestick views with SMA20/SMA50/Bollinger overlays, latest signal markers, model expected-return/confidence/crash/anomaly panels, market-regime timeline, portfolio allocation, strategy-versus-NIFTY50 equity curve, drawdown, rolling risk, turnover, transaction cost, TimeGAN stress distribution, and paper-account/equity/position visualization.
+The dashboard milestone is COMPLETE and has been runtime-verified locally. /api/state remains unchanged as the primary endpoint, with backward-compatible state persistence and additional market/performance fields. The dashboard uses browser-native canvas/SVG-free rendering with no paid chart dependency. It provides selected NSE price/candlestick views with SMA20/SMA50/Bollinger overlays, latest signal markers, model expected-return/confidence/crash/anomaly panels, market-regime timeline, portfolio allocation, strategy-versus-NIFTY50 equity curve, drawdown, rolling risk, turnover, transaction cost, TimeGAN stress distribution, and paper-account/equity/position visualization. The user visually verified the populated NSE workstation in the browser on 2026-09-27.
 
 Historical model outputs are not presented as an out-of-sample trading history. Price-chart signal markers are restricted to the latest model decision because the existing current-model inference path can generate retrospective in-sample outputs across historical dates. The backtest charts continue to use the existing backtest engine outputs.
 
+During runtime verification, three serialization/compatibility defects in the new dashboard path were fixed: signal date type mismatch during market-series merge, pandas Timestamp objects in the first dashboard state write, and the same Timestamp issue in the final state write. The final successful local run completed the full pipeline and populated the browser dashboard. Uvicorn must be run separately from the pipeline because the dashboard only serves persisted state.
+
 Paper equity history is now persisted in the paper broker state from this point forward. Existing paper state files without an equity_history field remain compatible.
 
-The available GitHub connector does not expose a local shell or a push-triggered workflow-run listing for this repository. The latest commits therefore have not been locally executed by this assistant; the repository's test workflow exists at .github/workflows/tests.yml, but no check/status was returned for the new commits. This limitation must not be mistaken for a passing test result.
+The available GitHub connector does not expose a local shell or a push-triggered workflow-run listing for this repository. The repository's test workflow exists at .github/workflows/tests.yml. A previous local baseline was 92 passed; the final dashboard runtime fixes in commits 6f1cbbf, 88a0b5c, and a8ef465 have not yet been followed by a fresh pytest run. Do not record a new test total until pytest is run locally or CI is verified.
 
 ## Three active goals
 
 ### Goal 1 — Maximize useful data and retrain
 
-Current Goal 1 progress: the local NSE store now contains broad CM history through 2026-09-25, and a point-in-time universe registry has been added. A non-destructive quality audit now also flags large close-to-close price discontinuities that may indicate corporate actions or symbol/data issues. The registry applies minimum history, coverage, median turnover, and explicit symbol-screen rules, while eligible_tickers_on() never reads observations after its as-of date. MARKET_ANALYZER_UNIVERSE=registry is opt-in and requires MARKET_ANALYZER_MARKET_DATA_PROVIDER=nse_local. The registry is intentionally not presented as a perfect security master: the local schema preserves only rows already filtered to NSE EQ series, so instrument classification beyond that is an explicit screening layer. Next: run the registry against the completed local store, inspect eligible counts/reasons, run the new price-discontinuity audit on the full store, then source/implement point-in-time corporate-action adjustments before retraining.
+Current Goal 1 progress: the local NSE store now contains broad CM history through 2026-09-25, a point-in-time universe registry has been added, and corporate-action history has now been acquired from the NSE corporate-actions API for all 1,133 currently eligible symbols. A non-destructive quality audit now also flags large close-to-close price discontinuities that may indicate corporate actions or symbol/data issues. The registry applies minimum history, coverage, median turnover, and explicit symbol-screen rules, while eligible_tickers_on() never reads observations after its as-of date. MARKET_ANALYZER_UNIVERSE=registry is opt-in and requires MARKET_ANALYZER_MARKET_DATA_PROVIDER=nse_local. The registry is intentionally not presented as a perfect security master: the local schema preserves only rows already filtered to NSE EQ series, so instrument classification beyond that is an explicit screening layer. Next: fix the corporate-action reconciliation report so matched jumps expose the actual action/purpose/factor, classify the 349 exact jump/action matches, tighten the parser so ratio-only split descriptions remain review-only unless an explicit face-value change is present, build a separate adjusted research series without mutating raw SQLite, re-run the discontinuity audit, then complete eligible-universe continuity/survivorship/symbol-change/leakage checks before retraining.
 
 Obtain and integrate as much relevant historical market information as is realistically available, prioritizing Indian equities and data that can legally/practically be obtained at zero or low cost.
 
@@ -152,7 +154,7 @@ NSE official daily CM-UDiFF Bhavcopy is the next important free Indian-market da
 4. Macro defaults are predominantly US/global instruments (^VIX, ^TNX, DXY, gold, crude). Indian-specific context is missing.
 5. SEC XBRL fundamentals are not an appropriate direct historical fundamental source for NSE companies.
 6. RSS title sentiment is a simple keyword scorer, not a strong financial NLP model.
-7. The dashboard still renders market signals as a table and portfolio information as mostly tables/bars. It is not yet a trader-oriented graphical interface.
+7. The trader-oriented graphical dashboard is now implemented and runtime-verified. Remaining dashboard work is hardening/regression coverage, not redesign.
 8. Existing dashboard regression tests still contain legacy SPY test fixtures even though the product has migrated to NSE/NIFTY.
 9. backtest/research.py still defaults to SPY in benchmark helper signatures. Indian product code should use NIFTY50/NSEI semantics.
 10. ExecutionEngine uses fixed configured capital when converting target weights into quantities. Before any real execution work, this must be reconciled with actual account equity and broker position state.
@@ -172,22 +174,25 @@ NSE official daily CM-UDiFF Bhavcopy is the next important free Indian-market da
 - Keep paper trading separate from real execution.
 - Every material model change should have a regression test and an out-of-sample comparison.
 
-## Baseline from the previous session
+## Baseline from the current session
 
-The corrected universe test commit passed GitHub Actions. The latest corporate-action audit commits are currently being verified by CI; do not record a new total until the run completes or the user runs pytest locally.
+The local test baseline before the final dashboard runtime fixes was 92 passed. No fresh pytest result has been recorded after commits 6f1cbbf, 88a0b5c, and a8ef465.
 
-The latest observed model run produced all-neutral signals across the six-stock NSE universe and a 100% cash portfolio because the system had no positive decision scores meeting allocation conditions. That state is not automatically a bug; it should be investigated against the expanded data and model calibration rather than forced into equity exposure.
+The final local pipeline run completed successfully on the six-stock NSE default universe using MARKET_ANALYZER_MARKET_DATA_PROVIDER=nse_local. Data date: 2026-09-25. The model produced UNDERWEIGHT for RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK and SBIN except TCS, which was NEUTRAL. The optimizer produced a 100% cash / 0% equity target because no positive decision scores met the allocation conditions. Do not force exposure; investigate this behavior with expanded data and calibration diagnostics.
 
-A previous backtest showed approximately:
-- Strategy CAGR: 54.6%
-- Volatility: 17.5%
-- Sharpe: 2.58
-- Sortino: 3.85
-- Max drawdown: -15.6%
-- Very high turnover: ~1431
-- NIFTY50 benchmark CAGR: ~9.2%
+Latest successful six-stock development backtest from that run:
+- Strategy CAGR: 53.83%
+- Volatility: 19.03%
+- Sharpe: 2.36
+- Sortino: 3.08
+- Max drawdown: -16.27%
+- Total turnover: ~1537.65
+- Total cost: ~1.0764
+- NIFTY50 benchmark CAGR: 9.22%
 
-These figures are historical development outputs only and must be revalidated after the data/model pipeline is expanded.
+These are historical development outputs only and must be revalidated after the data/model pipeline is expanded. High turnover remains a known research issue.
+
+Paper state still contains legacy QQQ/SPY/TLT positions in the persistent paper file. This is separate from the NSE dashboard and must be cleaned/reset before treating paper-trading state as an Indian-market operational baseline.
 
 ## Next-session execution order
 
@@ -215,7 +220,9 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 - Large candidates include extreme discontinuities such as KAUSHALYA, WINSOME, DIACABS, SUMEETINDS and ARIHANT; these must be reconciled against corporate actions before expanded retraining.
 - 1,702 tickers have at least one missing expected session within their observed active span; this statistic includes the long tail and must be re-evaluated on the eligible universe.
 - NSE documentation identifies corporate-action reports containing symbol, series, ex-date and corporate-action description, and notes that Bhavcopy prices are unadjusted while certain NSE reports provide corporate-action-adjusted values.
-- Added conservative corporate-action parser/adjuster supporting unambiguous bonus and split factors only; ambiguous actions such as rights/demergers remain review-only.
-- Added scripts/reconcile_corporate_actions.py to compare jump candidates with an NSE corporate-action CSV before any automatic adjustment.
+- Added conservative corporate-action parser/adjuster supporting unambiguous bonus and split factors; ambiguous actions such as rights/demergers remain review-only. The current parser still needs tightening because ratio-only split text is too permissive.
+- Added scripts/reconcile_corporate_actions.py with resumable NSE corporate-action API acquisition. Full acquisition completed for 1,133 eligible symbols: 925 freshly fetched, 208 cached, 0 failed, 15,651 rows, ex-date range 1996-12-04 to 2026-10-06.
+- Reconciliation currently reports 15,651 parsed actions, 548 automatically adjustable actions, and 349 price-jump candidates with exact ticker/ex-date matches. The report currently does not expose the matched action details correctly; all 349 must be inspected/classified before any adjustment.
+- Raw SQLite market data has not been mutated by corporate-action processing. This must remain the invariant.
 - Added --universe and --summary-only support to the NSE audit CLI.
-- Expanded retraining is still blocked pending corporate-action reconciliation and eligible-universe continuity audit.
+- Expanded retraining remains blocked pending corporate-action reconciliation, adjusted research-series construction, eligible-universe continuity/survivorship checks, and leakage review.
