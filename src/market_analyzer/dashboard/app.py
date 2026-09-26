@@ -131,6 +131,8 @@ def _render_backtest(backtest):
 
 def _render_stress(stress):
     if not stress:return "<div class='empty'>No stress-test result loaded.</div>"
+    if stress.get("cash_only"):
+        return "<div class='empty'>Portfolio is currently 100% cash; TimeGAN stress testing is not applicable until equity exposure is allocated.</div>"
     collapsed=bool(stress.get("collapsed",False))
     status="COLLAPSED" if collapsed else "DISPERSED"
     status_class="danger" if collapsed else "safe"
