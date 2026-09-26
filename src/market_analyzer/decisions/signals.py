@@ -30,7 +30,7 @@ def latest_signals(signals):
     d=signals.copy(); d["date"]=pd.to_datetime(d["date"])
     return d.sort_values("date").groupby("tic",as_index=False).tail(1).sort_values("tic").reset_index(drop=True)
 
-def apply_portfolio_gate(latest, min_confidence=0.10, max_crash_probability=0.50):
+def apply_portfolio_gate(latest, min_confidence=0.05, max_crash_probability=0.50):
     out=latest.copy()
     confidence=pd.to_numeric(out.get("confidence",0.0),errors="coerce").fillna(0.0)
     crash_probability=pd.to_numeric(out.get("crash_probability",0.0),errors="coerce").fillna(0.0)
