@@ -17,7 +17,7 @@ from market_analyzer.models.ensemble import IntelligenceEnsemble
 from market_analyzer.models.multihorizon import MultiHorizonForecaster
 from market_analyzer.models.regime import MarketRegimeModel
 from market_analyzer.models.stress import TimeGANStressTester
-from market_analyzer.decisions.signals import build_investment_signals
+from market_analyzer.decisions.signals import build_investment_signals, apply_portfolio_gate
 from market_analyzer.risk.optimizer import PortfolioOptimizer
 from market_analyzer.backtest.engine import signal_backtest, performance_metrics
 from market_analyzer.backtest.research import compare_strategy_to_benchmark
@@ -101,11 +101,15 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     decision_frame=risk_frame[["date","tic","ensemble_expected_return","positive_return_probability","ensemble_confidence","crash_probability","regime_probability","anomaly_score","regime_label"]].copy()
     signals=build_investment_signals(decision_frame,pd.DataFrame(columns=["date","tic","crash_probability"]),pd.DataFrame(columns=["date","tic","regime_probability"]),pd.DataFrame(columns=["date","tic","anomaly_score"]))
     latest=signals.sort_values("date").groupby("tic",as_index=False).tail(1).set_index("tic")
+    min_confidence=float(os.getenv("MARKET_ANALYZER_MIN_PORTFOLIO_CONFIDENCE","0.10"))
+    max_crash_probability=float(os.getenv("MARKET_ANALYZER_MAX_PORTFOLIO_CRASH","0.50"))
+    latest=apply_portfolio_gate(latest,min_confidence=min_confidence,max_crash_probability=max_crash_probability)
     returns=market.pivot(index="date",columns="tic",values="close").pct_change().dropna()
-    expected=latest["decision_score"].reindex(returns.columns).fillna(0.0)
-    portfolio=PortfolioOptimizer().optimize(expected,returns)
+    eligible=latest[latest["portfolio_eligible"]]
+    expected=eligible["decision_score"].reindex(returns.columns).fillna(0.0)
+    portfolio=PortfolioOptimizer().optimize(expected,returns,allow_cash=True)
     portfolio=portfolio.rename("target_weight").reset_index()
-    portfolio=portfolio.merge(latest[["signal","risk_state"]].reset_index(),on="tic",how="left")
+    portfolio=portfolio.merge(latest[["signal","risk_state","confidence","portfolio_eligible","allocation_reason"]].reset_index(),on="tic",how="right").fillna({"target_weight":0.0})
     price_frame=market[["date","tic","close"]].copy()
     backtest=signal_backtest(signals,price_frame,transaction_cost_bps=5.0,slippage_bps=2.0)
     benchmark_market=YahooMarketData(start,end,["^NSEI"]).fetch()
