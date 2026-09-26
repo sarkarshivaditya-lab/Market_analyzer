@@ -250,7 +250,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     state_file=os.getenv("MARKET_ANALYZER_PAPER_STATE_FILE","market_analyzer_paper.json")
     paper=PaperTradingSession.create(capital=100000.0,state_file=state_file)
     paper_result=paper.rebalance(portfolio[["tic","target_weight"]],latest_prices)
-    set_state(signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary,stress=stress_summary,paper=paper_result,market={"symbols":list(chart_market),"default_symbol":str(portfolio.iloc[0]["tic"]) if len(portfolio) else (list(chart_market)[0] if chart_market else None),"series":chart_market,"regime":regime_rows},performance={"series":performance_records})
+    set_state(signals=latest_signal_records.to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary,stress=stress_summary,paper=paper_result,market={"symbols":list(chart_market),"default_symbol":str(portfolio.iloc[0]["tic"]) if len(portfolio) else (list(chart_market)[0] if chart_market else None),"series":chart_market,"regime":regime_rows},performance={"series":performance_records})
     return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"stress":stress_summary,"walk_forward_windows":windows,"dashboard_market":chart_market,"dashboard_performance":performance_records,"dashboard_regime":regime_rows}
 
 if __name__=="__main__":
