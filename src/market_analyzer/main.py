@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import asdict
 import os
+import numpy as np
 import pandas as pd
 from market_analyzer.data.market import MarketData
 from market_analyzer.data.yahoo import YahooMarketData
