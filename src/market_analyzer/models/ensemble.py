@@ -55,7 +55,11 @@ class IntelligenceEnsemble:
             "sector_laggard_return_20d", "sector_dispersion_20d",
             "relative_return_20d_vs_spy", "relative_volatility_vs_spy",
             "fund_revenue", "fund_net_income", "fund_assets", "fund_liabilities", "fund_equity", "fund_cash",
-            "news_count", "news_sentiment",
+            "fund_revenue_growth", "fund_net_income_growth", "fund_profit_margin", "fund_debt_to_assets",
+            "fund_equity_ratio", "fund_cash_to_assets",
+            "fund_revenue_log", "fund_net_income_log", "fund_assets_log", "fund_liabilities_log",
+            "fund_equity_log", "fund_cash_log",
+            "news_count", "news_sentiment", "news_sentiment_3d", "news_sentiment_7d", "news_count_3d", "news_count_7d",
         ]
         return [c for c in preferred if c in frame.columns]
 
