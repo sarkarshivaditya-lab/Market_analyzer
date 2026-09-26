@@ -22,7 +22,7 @@ class PortfolioOptimizer:
         self.constraints = constraints or PortfolioConstraints()
 
     def optimize(self, expected_returns: pd.Series, returns: pd.DataFrame,
-                 previous_weights: pd.Series | None = None) -> pd.Series:
+                 previous_weights: pd.Series | None = None, allow_cash: bool = False) -> pd.Series:
         assets = [a for a in expected_returns.index if a in returns.columns]
         if not assets:
             return pd.Series(dtype=float, name="target_weight").rename_axis("tic")
@@ -47,7 +47,7 @@ class PortfolioOptimizer:
             return float(np.sqrt(max(w @ cov @ w, 0.0)) * np.sqrt(252.0))
 
         cons = [
-            {"type": "eq", "fun": lambda w: np.sum(w) - 1.0},
+            {"type": "ineq" if allow_cash else "eq", "fun": (lambda w: 1.0 - np.sum(w)) if allow_cash else (lambda w: np.sum(w) - 1.0)},
             {"type": "ineq", "fun": lambda w: self.constraints.target_volatility - annualized_vol(w)},
         ]
         bounds = [(0.0, self.constraints.max_weight)] * len(assets)
@@ -62,8 +62,11 @@ class PortfolioOptimizer:
                           options={"maxiter": 500, "ftol": 1e-10})
         if not result.success:
             # Preserve the hard concentration constraint even if the volatility target is infeasible.
-            return pd.Series(x0, index=assets, name="target_weight").rename_axis("tic")
+            fallback=np.zeros(len(assets)) if allow_cash else x0
+            return pd.Series(fallback, index=assets, name="target_weight").rename_axis("tic")
         weights = pd.Series(np.clip(result.x, 0.0, self.constraints.max_weight), index=assets)
+        if allow_cash:
+            return weights.rename_axis("tic")
         return (weights / weights.sum()).rename_axis("tic")
 
     @staticmethod
