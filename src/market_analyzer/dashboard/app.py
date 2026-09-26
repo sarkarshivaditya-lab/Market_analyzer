@@ -159,6 +159,7 @@ pre{{white-space:pre-wrap;margin:0;color:#374151;font:13px/1.65 ui-monospace,SFM
 @media(max-width:560px){{.container{{padding:20px 12px 40px}}.card{{padding:16px;border-radius:14px}}.metrics{{grid-template-columns:1fr}}h1{{font-size:27px}}}}
 </style></head>
 <body><main class='container'>
+<div id='api-state' data-endpoint='/api/state'></div>
 <header><div><h1>Market Analyzer</h1><p>Market intelligence, portfolio allocation and stress monitoring</p></div>
 <div class='header-meta'>Data date: <strong>{data_date}</strong><br>Updated: {updated}<br><button onclick='location.reload()'>Refresh</button></div></header>
 
