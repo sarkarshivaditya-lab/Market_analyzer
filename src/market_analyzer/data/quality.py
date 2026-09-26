@@ -17,6 +17,7 @@ class MarketQualityReport:
     nonpositive_price_rows: int
     negative_volume_rows: int
     zero_volume_rows: int
+    price_jump_candidates: int
     ticker_date_gaps: int
 
     @property
@@ -61,6 +62,11 @@ def audit_market_data(frame: pd.DataFrame, expected_sessions: pd.DatetimeIndex |
     negative_volume_rows = int((complete["volume"] < 0).sum())
     zero_volume_rows = int((complete["volume"] == 0).sum())
 
+    ordered = complete.sort_values(["tic", "date"]).copy()
+    previous_close = ordered.groupby("tic")["close"].shift(1)
+    ratio = ordered["close"] / previous_close
+    price_jump_candidates = int(((ratio >= 1.5) | (ratio <= (1 / 1.5))).fillna(False).sum())
+
     ticker_date_gaps = 0
     if expected_sessions is not None and len(expected_sessions):
         sessions = pd.DatetimeIndex(expected_sessions).normalize().sort_values().unique()
@@ -81,5 +87,6 @@ def audit_market_data(frame: pd.DataFrame, expected_sessions: pd.DatetimeIndex |
         nonpositive_price_rows=nonpositive_price_rows,
         negative_volume_rows=negative_volume_rows,
         zero_volume_rows=zero_volume_rows,
+        price_jump_candidates=price_jump_candidates,
         ticker_date_gaps=ticker_date_gaps,
     )
