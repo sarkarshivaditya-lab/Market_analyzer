@@ -106,9 +106,11 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     latest=apply_portfolio_gate(latest,min_confidence=min_confidence,max_crash_probability=max_crash_probability)
     returns=market.pivot(index="date",columns="tic",values="close").pct_change().dropna()
     eligible=latest[latest["portfolio_eligible"]]
-    expected=eligible["decision_score"].reindex(returns.columns).fillna(0.0)
-    portfolio=PortfolioOptimizer().optimize(expected,returns,allow_cash=True)
-    portfolio=portfolio.rename("target_weight").reset_index()
+    eligible_assets=[asset for asset in eligible.index if asset in returns.columns]
+    eligible_returns=returns[eligible_assets] if eligible_assets else returns.iloc[:,0:0]
+    expected=eligible["decision_score"].reindex(eligible_assets).fillna(0.0)
+    portfolio=PortfolioOptimizer().optimize(expected,eligible_returns,allow_cash=True)
+    portfolio=portfolio.rename("target_weight").reindex(returns.columns,fill_value=0.0).reset_index()
     portfolio=portfolio.merge(latest[["signal","risk_state","confidence","portfolio_eligible","allocation_reason"]].reset_index(),on="tic",how="right").fillna({"target_weight":0.0})
     price_frame=market[["date","tic","close"]].copy()
     backtest=signal_backtest(signals,price_frame,transaction_cost_bps=5.0,slippage_bps=2.0)
