@@ -17,6 +17,11 @@ def test_walk_forward_accepts_series_dates():
     windows = list(walk_forward_windows(dates, min_train_days=756, test_days=21, horizon_days=20))
     assert windows
 
+def test_walk_forward_accepts_datetime_index_dates():
+    dates = pd.date_range("2020-01-01", periods=1000, freq="B")
+    windows = list(walk_forward_windows(dates, min_train_days=756, test_days=21, horizon_days=20))
+    assert windows
+
 
 def test_macro_merge_does_not_create_tic_rows():
     market = pd.DataFrame({
