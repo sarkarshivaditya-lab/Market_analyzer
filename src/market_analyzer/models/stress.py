@@ -34,6 +34,7 @@ class TimeGANStressTester:
         self.model = TimeGAN(TimeGANConfig(feature_dim=feature_dim, hidden_dim=hidden_dim))
         self.trainer = TimeGANTrainer(self.model)
         self.fitted = False
+        self.last_total_returns = np.array([], dtype=np.float64)
 
     @staticmethod
     def make_sequences(values: np.ndarray, sequence_length: int) -> torch.Tensor:
@@ -75,6 +76,7 @@ class TimeGANStressTester:
         weights = weights / total
         portfolio_returns = np.sum(samples * weights.reshape(1, 1, -1), axis=2)
         total_returns = np.prod(1.0 + portfolio_returns, axis=1) - 1.0
+        self.last_total_returns = total_returns.astype(np.float64, copy=True)
         wealth = np.cumprod(1.0 + portfolio_returns, axis=1)
         drawdowns = wealth / np.maximum.accumulate(wealth, axis=1) - 1.0
         return_std=float(np.std(total_returns))
