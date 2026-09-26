@@ -26,7 +26,7 @@ FEATURES=[
 "macd","rsi_30","boll_ub","boll_lb","close_30_sma","close_60_sma","return_1d","return_5d","return_20d",
 "volatility_20d","volatility_60d","volume_z_20d","drawdown_60d","turbulence","macro_vix","macro_tnx",
 "macro_dx_y_nyb","macro_gc_f","macro_cl_f","macro_vix_chg_5d","macro_vix_z_60d","macro_tnx_chg_20d",
-"macro_dx_y_nyb_chg_5d","macro_dx_y_nyb_chg_5d","macro_gc_f_chg_5d","macro_cl_f_chg_5d","breadth_pct_positive_1d",
+"macro_dx_y_nyb_chg_5d","macro_gc_f_chg_5d","macro_cl_f_chg_5d","breadth_pct_positive_1d",
 "breadth_pct_positive_5d","breadth_median_return_1d","breadth_median_return_5d","market_return_dispersion_1d",
 "market_return_dispersion_5d","market_cross_sectional_range_1d","sector_leader_return_20d","sector_laggard_return_20d",
 "sector_dispersion_20d","spy_return_20d_context","spy_volatility_20d_context","relative_return_20d_vs_spy",
