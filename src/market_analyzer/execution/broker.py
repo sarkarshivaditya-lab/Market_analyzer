@@ -138,7 +138,6 @@ class ExecutionEngine:
         if not isinstance(broker,PaperBroker) and policy.paper_only is False:
             if os.environ.get("MARKET_ANALYZER_LIVE_TRADING") != "CONFIRMED":
                 raise ValueError("Live execution requires MARKET_ANALYZER_LIVE_TRADING=CONFIRMED.")
-
         if capital<=0:
             raise ValueError("Execution capital must be positive.")
         self.broker=broker; self.policy=policy; self.capital=float(capital)
@@ -175,12 +174,16 @@ class ExecutionEngine:
         return results
 
     def execute(self,decisions: pd.DataFrame,prices: dict[str,float]) -> list[dict]:
-        results=[]
+        rows=[]
         for row in decisions.to_dict("records"):
-            ticker=str(row["tic"]); expected=float(row.get("ensemble_expected_return",row.get("expected_return",0.0)))
-            confidence=float(row.get("ensemble_confidence",row.get("confidence",0.0))); weight=float(row.get("target_weight",0.0))
-            price=float(prices.get(ticker,0.0)); remaining_daily=self.policy.max_daily_notional-self._daily_notional()
-            notional=min(max(0.0,weight)*self.capital,self.policy.max_order_notional,remaining_daily)
-            if price<=0 or notional<=0 or (self.policy.require_positive_expected_return and expected<=0) or confidence<self.policy.min_confidence: continue
-            result=self.broker.submit(Order(ticker,"BUY",notional/price,price=price)); results.append(result)
-        return results
+            expected=float(row.get("ensemble_expected_return",row.get("expected_return",0.0)))
+            confidence=float(row.get("ensemble_confidence",row.get("confidence",0.0)))
+            weight=max(0.0,float(row.get("target_weight",0.0)))
+            if weight>0 and self.policy.require_positive_expected_return and expected<=0:
+                continue
+            if weight>0 and confidence<self.policy.min_confidence:
+                continue
+            rows.append({"tic":str(row["tic"]),"target_weight":weight})
+        if not rows:
+            return []
+        return self.rebalance(pd.DataFrame(rows),prices)
