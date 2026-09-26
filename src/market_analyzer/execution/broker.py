@@ -69,8 +69,10 @@ class ExecutionPolicy:
     min_confidence: float=.60
 
 class ExecutionEngine:
-    def __init__(self,broker: Broker,policy: ExecutionPolicy|None=None):
-        self.broker=broker; self.policy=policy or ExecutionPolicy(); self.daily_notional=0.0
+    def __init__(self,broker: Broker,policy: ExecutionPolicy|None=None,capital: float = 100000.0):
+        if capital <= 0:
+            raise ValueError("Execution capital must be positive.")
+        self.broker=broker; self.policy=policy or ExecutionPolicy(); self.daily_notional=0.0; self.capital=float(capital)
         if self.policy.paper_only and not isinstance(broker,PaperBroker):
             raise ValueError("paper_only=True requires PaperBroker.")
     def rebalance(self, targets: pd.DataFrame, prices: dict[str,float], current_positions: dict[str,float] | None = None) -> list[dict]:
@@ -79,7 +81,7 @@ class ExecutionEngine:
         for row in targets.to_dict("records"):
             ticker=str(row["tic"]); price=float(prices.get(ticker,0.0))
             if price<=0: continue
-            target_qty=max(0.0,float(row.get("target_weight",0.0))*100000.0/price)
+            target_qty=max(0.0,float(row.get("target_weight",0.0))*self.capital/price)
             delta=target_qty-float(positions.get(ticker,0.0))
             notional=min(abs(delta)*price,self.policy.max_order_notional,self.policy.max_daily_notional-self.daily_notional)
             if notional<1.0: continue
@@ -95,7 +97,7 @@ class ExecutionEngine:
         for row in decisions.to_dict("records"):
             ticker=str(row["tic"]); expected=float(row.get("ensemble_expected_return",row.get("expected_return",0.0)))
             confidence=float(row.get("ensemble_confidence",row.get("confidence",0.0))); weight=float(row.get("target_weight",0.0))
-            price=float(prices.get(ticker,0.0)); notional=min(max(0.0,weight)*100000.0,self.policy.max_order_notional,self.policy.max_daily_notional-self.daily_notional)
+            price=float(prices.get(ticker,0.0)); notional=min(max(0.0,weight)*self.capital,self.policy.max_order_notional,self.policy.max_daily_notional-self.daily_notional)
             if price<=0 or notional<=0 or (self.policy.require_positive_expected_return and expected<=0) or confidence<self.policy.min_confidence: continue
             result=self.broker.submit(Order(ticker,"BUY",notional/price,price=price)); results.append(result); self.daily_notional+=notional
         return results
