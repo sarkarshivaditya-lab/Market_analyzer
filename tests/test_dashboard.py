@@ -45,3 +45,21 @@ def test_dashboard_explains_cash_and_allocation_gate(tmp_path,monkeypatch):
     assert "Cash" in page
     assert "LOW CONFIDENCE" in page
     assert "ELIGIBLE" in page
+
+
+def test_dashboard_state_exposes_graphical_contract(tmp_path,monkeypatch):
+    monkeypatch.setattr(dashboard_app,"STATE_FILE",tmp_path/"dashboard_state.json")
+    set_state(
+        market={"symbols":["RELIANCE"],"default_symbol":"RELIANCE","series":{"RELIANCE":[{"date":"2026-09-25","open":100,"high":105,"low":99,"close":104,"sma20":101,"sma50":98,"bb_upper":108,"bb_lower":94,"signal":"OVERWEIGHT","expected_return":0.03,"confidence":0.7,"crash_probability":0.1}]},"regime":[{"date":"2026-09-25","label":"REGIME_1","probability":0.8}]},
+        performance={"series":[{"date":"2026-09-25","strategy_equity":1.0,"benchmark_equity":1.0,"drawdown":0.0,"rolling_sharpe":0.0,"rolling_volatility":0.0,"turnover":0.0,"transaction_cost":0.0}]},
+    )
+    payload=state()
+    assert payload["market"]["default_symbol"]=="RELIANCE"
+    assert payload["market"]["series"]["RELIANCE"][0]["close"]==104
+    assert payload["performance"]["series"][0]["strategy_equity"]==1.0
+
+
+def test_dashboard_contains_trader_graphics_contract():
+    page=dashboard()
+    for marker in ["price-chart","equity-chart","drawdown-chart","rolling-chart","turnover-chart","cost-chart","stress-chart","Target portfolio","Paper trading"]:
+        assert marker in page
