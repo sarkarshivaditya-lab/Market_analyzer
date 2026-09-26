@@ -8,8 +8,8 @@ This file is the persistent handover for the next development session. Before ch
 
 Repository: sarkarshivaditya-lab/Market_analyzer
 Default branch: main
-Latest audited commit: 45b0763e770e9b51ab01f99d561a50554eaf2f50
-Latest commit message: document Zerodha authentication and market data
+Latest audited commit: 91b647b1ff25bcf38f9729e00d310972be006935
+Latest commit message: test configurable NSE universe mode
 
 The repository is an AI-driven Indian-market financial intelligence and portfolio-decision platform. It currently contains market ingestion, technical/context features, multi-horizon forecasting, crash-risk classification, regime detection, anomaly scoring, a stacked ensemble, probability calibration, portfolio optimization, backtesting, TimeGAN stress testing, FastAPI dashboard, paper trading, and guarded Zerodha execution scaffolding.
 
@@ -30,6 +30,8 @@ The available GitHub connector does not expose a local shell or a push-triggered
 ## Three active goals
 
 ### Goal 1 — Maximize useful data and retrain
+
+Current Goal 1 progress: the local NSE store now contains broad CM history through 2026-09-25, and a point-in-time universe registry has been added. The registry applies minimum history, coverage, median turnover, and explicit symbol-screen rules, while eligible_tickers_on() never reads observations after its as-of date. MARKET_ANALYZER_UNIVERSE=registry is opt-in and requires MARKET_ANALYZER_MARKET_DATA_PROVIDER=nse_local. The registry is intentionally not presented as a perfect security master: the local schema preserves only rows already filtered to NSE EQ series, so instrument classification beyond that is an explicit screening layer. Next: run the registry against the completed local store, inspect eligible counts/reasons, then address corporate actions/adjustments and Indian-specific context before retraining.
 
 Obtain and integrate as much relevant historical market information as is realistically available, prioritizing Indian equities and data that can legally/practically be obtained at zero or low cost.
 
@@ -172,7 +174,7 @@ NSE official daily CM-UDiFF Bhavcopy is the next important free Indian-market da
 
 ## Baseline from the previous session
 
-Known test baseline: 64 tests passing after the latest local test run.
+Known local test baseline before the latest universe commits: 85 tests passing. GitHub Actions is currently executing the latest commit; do not record a new passing count until that run completes or the user runs pytest locally.
 
 The latest observed model run produced all-neutral signals across the six-stock NSE universe and a 100% cash portfolio because the system had no positive decision scores meeting allocation conditions. That state is not automatically a bug; it should be investigated against the expanded data and model calibration rather than forced into equity exposure.
 
