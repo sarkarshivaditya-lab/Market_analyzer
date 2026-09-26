@@ -74,11 +74,9 @@ def _render_signals(signals):
         signal=html.escape(str(row.get("signal","—")))
         regime=html.escape(str(row.get("regime_label","—")))
         rows.append(
-            f"<tr><td class='ticker'>{tic}</td>"
-            f"<td><span class='pill {_signal_class(signal)}'>{signal}</span></td>"
-            f"<td>{regime}</td><td>{_pct(row.get('expected_return'))}</td>"
-            f"<td>{_pct(row.get('crash_probability'))}</td><td>{_num(row.get('anomaly_score'))}</td>"
-            f"<td>{_pct(row.get('confidence'))}</td></tr>"
+            f"<tr><td class='ticker'>{tic}</td><td><span class='pill {_signal_class(signal)}'>{signal}</span></td>"
+            f"<td>{regime}</td><td>{_pct(row.get('expected_return'))}</td><td>{_pct(row.get('crash_probability'))}</td>"
+            f"<td>{_num(row.get('anomaly_score'))}</td><td>{_pct(row.get('confidence'))}</td></tr>"
         )
     return "<table><thead><tr><th>Asset</th><th>Signal</th><th>Regime</th><th>Expected</th><th>Crash risk</th><th>Anomaly</th><th>Confidence</th></tr></thead><tbody>"+"".join(rows)+"</tbody></table>"
 
@@ -91,8 +89,8 @@ def _render_portfolio(portfolio):
         signal=html.escape(str(row.get("signal","—")))
         risk=html.escape(str(row.get("risk_state","—")))
         rows.append(
-            f"<div class='allocation'><div class='allocation-head'><span class='ticker'>{tic}</span>"
-            f"<span>{weight:.1%}</span></div><div class='bar'><span style='width:{weight*100:.2f}%'></span></div>"
+            f"<div class='allocation'><div class='allocation-head'><span class='ticker'>{tic}</span><span>{weight:.1%}</span></div>"
+            f"<div class='bar'><span style='width:{weight*100:.2f}%'></span></div>"
             f"<div class='allocation-meta'><span>{signal}</span><span class='pill {_risk_class(risk)}'>{risk}</span></div></div>"
         )
     return "".join(rows)
@@ -134,7 +132,7 @@ def dashboard():
     backtest=data.get("backtest",{})
     stress=data.get("stress",{})
     brief=html.escape(str(data.get("brief","No analysis loaded.")))
-    updated=html.escape(str(data.get("updated_at") or "Not available"))
+    updated=html.escape(str(data.get("updated_at") or "Run timestamp not recorded"))
     data_date="Not available"
     if signals:
         data_date=html.escape(str(signals[0].get("date","Not available"))[:10])
@@ -148,16 +146,17 @@ def dashboard():
 h1{{margin:0;font-size:30px;letter-spacing:-.7px}} h2{{margin:0 0 16px;font-size:18px}} p{{color:var(--muted);margin:6px 0 0}}
 .header-meta{{text-align:right;color:var(--muted);font-size:13px;line-height:1.6}} button{{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:8px 12px;cursor:pointer;font-weight:600}}
 .card{{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin:14px 0;box-shadow:0 1px 2px rgba(0,0,0,.03)}}
-.grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}} .metrics{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}}
-.metric{{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fafafa}} .metric-label{{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}}
+.grid{{display:grid;grid-template-columns:1fr 2fr;gap:12px}} .metrics{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}}
+.metric{{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fafafa;min-width:0}} .metric-label{{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}}
 .metric-value{{font-size:22px;font-weight:700;margin-top:5px}} .metric-sub{{font-size:12px;color:var(--muted);margin-top:4px}}
-table{{width:100%;border-collapse:collapse;font-size:14px}} th,td{{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left}} th{{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}} .ticker{{font-weight:700;letter-spacing:.02em}}
+table{{width:100%;border-collapse:collapse;font-size:14px}} th,td{{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}} th{{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}} .ticker{{font-weight:700;letter-spacing:.02em}}
 .pill{{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}} .positive,.safe{{background:#ecfdf5;color:var(--positive)}} .negative,.danger{{background:#fef2f2;color:var(--negative)}} .neutral{{background:#f3f4f6;color:#4b5563}} .warning{{background:#fffbeb;color:var(--warning)}}
 .allocation{{padding:11px 0;border-bottom:1px solid var(--line)}} .allocation:last-child{{border-bottom:0}} .allocation-head,.allocation-meta{{display:flex;justify-content:space-between;gap:10px}} .allocation-head{{font-size:14px}} .allocation-meta{{font-size:12px;color:var(--muted);margin-top:7px}}
 .bar{{height:8px;background:#edf0f4;border-radius:99px;margin-top:8px;overflow:hidden}} .bar span{{display:block;height:100%;background:var(--accent);border-radius:99px}}
 pre{{white-space:pre-wrap;margin:0;color:#374151;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}} .empty{{color:var(--muted);padding:8px 0}}
-.notice{{font-size:12px;color:var(--muted);margin-top:12px}} .section-head{{display:flex;justify-content:space-between;align-items:center;gap:12px}}
-@media(max-width:800px){{.grid,.metrics{{grid-template-columns:1fr}} header{{align-items:flex-start;flex-direction:column}} .header-meta{{text-align:left}} table{{min-width:720px}} .table-wrap{{overflow-x:auto}}}}
+.notice{{font-size:12px;color:var(--muted);margin-top:12px}} .section-head{{display:flex;justify-content:space-between;align-items:center;gap:12px}} .table-wrap{{overflow-x:auto}}
+@media(max-width:900px){{.grid{{grid-template-columns:1fr}}.metrics{{grid-template-columns:repeat(2,minmax(0,1fr))}}header{{align-items:flex-start;flex-direction:column}}.header-meta{{text-align:left}}}}
+@media(max-width:560px){{.container{{padding:20px 12px 40px}}.card{{padding:16px;border-radius:14px}}.metrics{{grid-template-columns:1fr}}h1{{font-size:27px}}}}
 </style></head>
 <body><main class='container'>
 <header><div><h1>Market Analyzer</h1><p>Market intelligence, portfolio allocation and stress monitoring</p></div>
@@ -167,9 +166,9 @@ pre{{white-space:pre-wrap;margin:0;color:#374151;font:13px/1.65 ui-monospace,SFM
 <div class='table-wrap'>{_render_signals(signals)}</div></section>
 
 <section class='grid'><div class='card'><h2>Target portfolio</h2>{_render_portfolio(portfolio)}</div>
-<div class='card' style='grid-column:span 2'><h2>Backtest</h2><div class='metrics'>{_render_backtest(backtest)}</div></div></section>
+<div class='card'><h2>Backtest</h2><div class='metrics'>{_render_backtest(backtest)}</div></div></section>
 
 <section class='card'><h2>TimeGAN stress test</h2><div class='metrics'>{_render_stress(stress)}</div></section>
 
-<section class='card'><h2>Model brief</h2><pre>{brief}</pre><div class='notice'>Outputs are model signals for validation and decision support, not guarantees of future returns.</div></section>
+<section class='card'><h2>Model brief</h2><pre>{brief}</pre></section>
 </main></body></html>"""
