@@ -1,18 +1,14 @@
-import pandas as pd
-from fastapi.testclient import TestClient
-from market_analyzer.dashboard.app import app, set_state
+from market_analyzer.dashboard.app import dashboard, health, set_state, state
 
 def test_dashboard_health_and_state():
-    client=TestClient(app)
-    assert client.get("/health").json()["status"]=="ok"
+    assert health()["status"]=="ok"
     set_state(signals=[{"tic":"SPY"}],portfolio=[{"tic":"SPY","target_weight":1.0}],brief="ready")
-    payload=client.get("/api/state").json()
+    payload=state()
     assert payload["brief"]=="ready"
     assert payload["signals"][0]["tic"]=="SPY"
     assert payload["portfolio"][0]["target_weight"]==1.0
 
 def test_dashboard_page_loads():
-    client=TestClient(app)
-    response=client.get("/")
+    response=dashboard()
     assert response.status_code==200
-    assert "Market Analyzer" in response.text
+    assert "Market Analyzer" in response.body.decode()
