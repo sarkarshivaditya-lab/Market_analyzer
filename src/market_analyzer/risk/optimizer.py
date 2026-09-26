@@ -28,7 +28,7 @@ class PortfolioOptimizer:
             return pd.Series(dtype=float)
         mu = expected_returns.loc[assets].astype(float).fillna(0.0).to_numpy()
         hist = returns[assets].astype(float).replace([np.inf, -np.inf], np.nan).dropna(how="all")
-        cov = hist.cov().fillna(0.0).to_numpy()
+        cov = hist.cov().fillna(0.0).to_numpy(copy=True)
         if cov.shape != (len(assets), len(assets)):
             cov = np.eye(len(assets)) * 0.0001
         cov += np.eye(len(assets)) * 1e-8
