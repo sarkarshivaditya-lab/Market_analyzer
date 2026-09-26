@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 
 app=FastAPI(title="Market Analyzer",version="0.1.0")
 STATE_FILE=Path(os.getenv("MARKET_ANALYZER_STATE_FILE",Path(tempfile.gettempdir())/"market_analyzer_state.json"))
-_state={"signals":[],"portfolio":[],"brief":"No analysis loaded.","backtest":{},"stress":{},"updated_at":None}
+_state={"signals":[],"portfolio":[],"brief":"No analysis loaded.","backtest":{},"stress":{},"paper":{},"updated_at":None}
 
 def _load_state():
     global _state
@@ -24,12 +24,13 @@ def _load_state():
         pass
     return _state
 
-def set_state(signals=None,portfolio=None,brief=None,backtest=None,stress=None):
+def set_state(signals=None,portfolio=None,brief=None,backtest=None,stress=None,paper=None):
     if signals is not None:_state["signals"]=signals
     if portfolio is not None:_state["portfolio"]=portfolio
     if brief is not None:_state["brief"]=brief
     if backtest is not None:_state["backtest"]=backtest
     if stress is not None:_state["stress"]=stress
+    if paper is not None:_state["paper"]=paper
     _state["updated_at"]=datetime.now(timezone.utc).isoformat()
     try:
         STATE_FILE.parent.mkdir(parents=True,exist_ok=True)
@@ -79,6 +80,14 @@ def _render_signals(signals):
             f"<td>{_num(row.get('anomaly_score'))}</td><td>{_pct(row.get('confidence'))}</td></tr>"
         )
     return "<table><thead><tr><th>Asset</th><th>Signal</th><th>Regime</th><th>Expected</th><th>Crash risk</th><th>Anomaly</th><th>Confidence</th></tr></thead><tbody>"+"".join(rows)+"</tbody></table>"
+
+def _render_paper(paper):
+    if not paper:return "<div class='empty'>No paper-trading account loaded.</div>"
+    snapshot=paper.get("snapshot",{})
+    positions=paper.get("positions",[])
+    rows="".join(f"<tr><td class='ticker'>{html.escape(str(r.get('tic','—')))}</td><td>{_num(r.get('quantity'),4)}</td><td>{_num(r.get('price'),2)}</td><td>{_pct(r.get('actual_weight'))}</td></tr>" for r in positions)
+    table="<div class='table-wrap'><table><thead><tr><th>Asset</th><th>Quantity</th><th>Price</th><th>Actual allocation</th></tr></thead><tbody>"+rows+"</tbody></table></div>" if rows else "<div class='empty'>No open paper positions.</div>"
+    return "".join([_metric("Equity",_num(snapshot.get("equity"),2)),_metric("Cash",_num(snapshot.get("cash"),2)),_metric("Today's notional",_num(snapshot.get("daily_notional"),2)),table])
 
 def _render_portfolio(portfolio):
     if not portfolio:return "<div class='empty'>No portfolio allocation loaded.</div>"
@@ -131,6 +140,7 @@ def dashboard():
     portfolio=data.get("portfolio",[])
     backtest=data.get("backtest",{})
     stress=data.get("stress",{})
+    paper=data.get("paper",{})
     brief=html.escape(str(data.get("brief","No analysis loaded.")))
     updated=html.escape(str(data.get("updated_at") or "Run timestamp not recorded"))
     data_date="Not available"
@@ -168,6 +178,8 @@ pre{{white-space:pre-wrap;margin:0;color:#374151;font:13px/1.65 ui-monospace,SFM
 
 <section class='grid'><div class='card'><h2>Target portfolio</h2>{_render_portfolio(portfolio)}</div>
 <div class='card'><h2>Backtest</h2><div class='metrics'>{_render_backtest(backtest)}</div></div></section>
+
+<section class='card'><h2>Paper trading</h2>{_render_paper(paper)}</section>
 
 <section class='card'><h2>TimeGAN stress test</h2><div class='metrics'>{_render_stress(stress)}</div></section>
 
