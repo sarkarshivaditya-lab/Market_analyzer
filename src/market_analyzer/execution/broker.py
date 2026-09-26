@@ -18,6 +18,7 @@ class Order:
     price: float | None = None
 
 class Broker(Protocol):
+    paper: bool
     def submit(self, order: Order) -> dict: ...
 
 def _utc_now() -> str:
@@ -28,6 +29,7 @@ class PaperBroker:
     def __init__(self, starting_cash: float = 100000.0, state_file: str | Path | None = None):
         if starting_cash < 0:
             raise ValueError("Starting paper cash cannot be negative.")
+        self.paper=True
         self.state_file=Path(state_file) if state_file else None
         self.cash=float(starting_cash)
         self.positions: dict[str,float]={}
@@ -107,6 +109,7 @@ class PaperBroker:
 class ZerodhaBroker:
     """Kite Connect order adapter. Requires KITE_API_KEY and KITE_ACCESS_TOKEN."""
     def __init__(self, api_key=None, access_token=None):
+        self.paper=False
         self.api_key=api_key or os.environ["KITE_API_KEY"]; self.access_token=access_token or os.environ["KITE_ACCESS_TOKEN"]
     def submit(self, order: Order) -> dict:
         payload={"exchange":"NSE","tradingsymbol":order.ticker,"transaction_type":order.side,"quantity":int(order.quantity),"order_type":order.order_type.upper(),"product":"CNC","validity":"DAY","variety":"regular"}
@@ -117,6 +120,7 @@ class ZerodhaBroker:
 class AlpacaBroker:
     """Alpaca REST adapter. Defaults to paper trading unless a live base URL is supplied."""
     def __init__(self, api_key=None, secret_key=None, paper=True):
+        self.paper=bool(paper)
         self.api_key=api_key or os.environ["ALPACA_API_KEY"]; self.secret_key=secret_key or os.environ["ALPACA_SECRET_KEY"]
         self.base="https://paper-api.alpaca.markets" if paper else "https://api.alpaca.markets"
     def submit(self, order: Order) -> dict:
@@ -135,7 +139,7 @@ class ExecutionPolicy:
 class ExecutionEngine:
     def __init__(self,broker: Broker,policy: ExecutionPolicy|None=None,capital: float = 100000.0):
         policy=policy or ExecutionPolicy()
-        if not isinstance(broker,PaperBroker) and policy.paper_only is False:
+        if not getattr(broker,"paper",False) and policy.paper_only is False:
             if os.environ.get("MARKET_ANALYZER_LIVE_TRADING") != "CONFIRMED":
                 raise ValueError("Live execution requires MARKET_ANALYZER_LIVE_TRADING=CONFIRMED.")
         if capital<=0:
@@ -143,8 +147,8 @@ class ExecutionEngine:
         self.broker=broker; self.policy=policy; self.capital=float(capital)
         if self.policy.max_order_notional<=0 or self.policy.max_daily_notional<=0:
             raise ValueError("Execution notional limits must be positive.")
-        if self.policy.paper_only and not isinstance(broker,PaperBroker):
-            raise ValueError("paper_only=True requires PaperBroker.")
+        if self.policy.paper_only and not getattr(broker,"paper",False):
+            raise ValueError("paper_only=True requires a paper broker.")
 
     def _daily_notional(self) -> float:
         return float(getattr(self.broker,"daily_notional",0.0))
