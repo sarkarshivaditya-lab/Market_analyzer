@@ -81,7 +81,8 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     risk_frame=risk_frame.merge(ensemble_out,on=["date","tic"],how="left")
     risk_frame["positive_return_probability"]=calibrator.transform(risk_frame["positive_return_probability"].fillna(.5))
     risk_frame["ensemble_confidence"]=(risk_frame["positive_return_probability"]-.5).abs()*2
-    signals=build_investment_signals(risk_frame,risk_frame[["date","tic","crash_probability"]],risk_frame[["date","tic","regime_probability"]],risk_frame[["date","tic","anomaly_score"]])
+    decision_frame=ensemble_out.merge(risk_frame[["date","tic","crash_probability","regime_probability","anomaly_score"]],on=["date","tic"],how="left")
+    signals=build_investment_signals(decision_frame,decision_frame[["date","tic","crash_probability"]],decision_frame[["date","tic","regime_probability"]],decision_frame[["date","tic","anomaly_score"]])
     latest=signals.sort_values("date").groupby("tic",as_index=False).tail(1).set_index("tic")
     returns=market.pivot(index="date",columns="tic",values="close").pct_change().dropna()
     expected=latest["ensemble_expected_return"].reindex(returns.columns).fillna(0.0)
