@@ -1,0 +1,45 @@
+import pandas as pd
+import pytest
+
+from market_analyzer.data.quality import audit_market_data
+
+
+def _frame():
+    return pd.DataFrame([
+        {"date":"2026-09-24","tic":"INFY","open":1500,"high":1520,"low":1490,"close":1510,"volume":100},
+        {"date":"2026-09-25","tic":"INFY","open":1510,"high":1530,"low":1505,"close":1525,"volume":120},
+        {"date":"2026-09-24","tic":"TCS","open":3000,"high":3050,"low":2990,"close":3030,"volume":200},
+    ])
+
+
+def test_market_quality_report_accepts_clean_data():
+    report = audit_market_data(_frame())
+    assert report.valid
+    assert report.rows == 3
+    assert report.tickers == 2
+    assert report.first_date == "2026-09-24"
+    assert report.last_date == "2026-09-25"
+
+
+def test_market_quality_report_detects_market_data_anomalies():
+    frame = _frame()
+    frame.loc[1, "high"] = 1400
+    frame.loc[2, "volume"] = -1
+    frame = pd.concat([frame, frame.iloc[[0]]], ignore_index=True)
+    report = audit_market_data(frame)
+    assert not report.valid
+    assert report.duplicate_rows == 2
+    assert report.invalid_ohlc_rows == 1
+    assert report.negative_volume_rows == 1
+
+
+def test_market_quality_report_counts_missing_sessions_per_ticker():
+    frame = _frame()
+    sessions = pd.DatetimeIndex(["2026-09-24", "2026-09-25"])
+    report = audit_market_data(frame, expected_sessions=sessions)
+    assert report.ticker_date_gaps == 1
+
+
+def test_market_quality_requires_normalized_market_columns():
+    with pytest.raises(ValueError, match="Missing market columns"):
+        audit_market_data(pd.DataFrame({"date":["2026-09-24"], "tic":["INFY"]}))
