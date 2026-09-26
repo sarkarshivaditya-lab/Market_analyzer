@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 from io import StringIO
-from urllib.parse import urlencode
 import pandas as pd
 import requests
 
@@ -95,6 +94,26 @@ class ZerodhaMarketData:
         if not frame.empty:
             frame["date"] = pd.to_datetime(frame["date"])
         return frame
+
+    def fetch(self, start_date: str, end_date: str, tickers: list[str], interval: str = "day") -> pd.DataFrame:
+        """Fetch NSE OHLCV data in the same schema used by the analyzer."""
+        if not tickers:
+            raise ValueError("tickers must not be empty")
+        token_map=self.resolve_tokens(tickers)
+        frames=[]
+        for ticker in [str(t).strip().upper() for t in tickers]:
+            token=token_map.get(ticker)
+            if token is None:
+                continue
+            frame=self.historical(token,start_date,end_date,interval)
+            if frame.empty:
+                continue
+            frame["date"]=pd.to_datetime(frame["date"]).dt.strftime("%Y-%m-%d")
+            frame["tic"]=ticker
+            frames.append(frame[["date","open","high","low","close","volume","tic"]])
+        if not frames:
+            raise ValueError("No Zerodha market data was fetched.")
+        return pd.concat(frames,ignore_index=True).sort_values(["date","tic"]).reset_index(drop=True)
 
     def historical_for_ticker(self, ticker: str, start_date: str, end_date: str, interval: str = "day") -> pd.DataFrame:
         """Resolve an NSE symbol and fetch its historical candles."""
