@@ -52,3 +52,12 @@ def test_market_quality_flags_large_price_discontinuities_without_marking_data_i
     report = audit_market_data(frame)
     assert report.valid
     assert report.price_jump_candidates == 1
+
+def test_market_quality_gap_audit_ignores_pre_listing_and_post_delisting_sessions():
+    frame = pd.DataFrame([
+        {"date":"2026-09-24","tic":"NEWCO","open":100,"high":101,"low":99,"close":100,"volume":100},
+        {"date":"2026-09-26","tic":"NEWCO","open":101,"high":102,"low":100,"close":101,"volume":100},
+    ])
+    sessions = pd.DatetimeIndex(["2026-09-20","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-25","2026-09-26","2026-09-27"])
+    report = audit_market_data(frame, expected_sessions=sessions)
+    assert report.ticker_date_gaps == 1
