@@ -91,18 +91,28 @@ def _render_paper(paper):
 
 def _render_portfolio(portfolio):
     if not portfolio:return "<div class='empty'>No portfolio allocation loaded.</div>"
+    total_weight=sum(max(0.0,min(1.0,float(row.get("target_weight",0.0) or 0.0))) for row in portfolio)
+    cash_weight=max(0.0,1.0-total_weight)
+    eligible_count=sum(bool(row.get("portfolio_eligible",False)) for row in portfolio)
+    low_confidence_count=sum(str(row.get("allocation_reason","")).startswith("LOW_CONFIDENCE") for row in portfolio)
+    high_crash_count=sum("HIGH_CRASH_RISK" in str(row.get("allocation_reason","")) for row in portfolio)
+    status="LOW CONVICTION" if total_weight < 0.5 else "INVESTED"
+    status_class="warning" if total_weight < 0.5 else "safe"
+    summary=f"<div class='metrics'><div class='metric'><div class='metric-label'>Equity exposure</div><div class='metric-value'>{total_weight:.1%}</div><div class='metric-sub'>target portfolio</div></div><div class='metric'><div class='metric-label'>Cash</div><div class='metric-value'>{cash_weight:.1%}</div><div class='metric-sub'>unallocated</div></div><div class='metric'><div class='metric-label'>Portfolio state</div><div class='metric-value'><span class='pill {status_class}'>{status}</span></div><div class='metric-sub'>{eligible_count} eligible · {low_confidence_count} low confidence · {high_crash_count} high crash</div></div></div>"
     rows=[]
     for row in portfolio:
         tic=html.escape(str(row.get("tic","—")))
         weight=max(0.0,min(1.0,float(row.get("target_weight",0.0) or 0.0)))
         signal=html.escape(str(row.get("signal","—")))
         risk=html.escape(str(row.get("risk_state","—")))
+        reason=html.escape(str(row.get("allocation_reason","—")))
+        confidence=_pct(row.get("confidence"))
         rows.append(
             f"<div class='allocation'><div class='allocation-head'><span class='ticker'>{tic}</span><span>{weight:.1%}</span></div>"
             f"<div class='bar'><span style='width:{weight*100:.2f}%'></span></div>"
-            f"<div class='allocation-meta'><span>{signal}</span><span class='pill {_risk_class(risk)}'>{risk}</span></div></div>"
+            f"<div class='allocation-meta'><span>{signal} · {confidence} confidence</span><span class='pill {_risk_class(risk)}'>{reason}</span></div></div>"
         )
-    return "".join(rows)
+    return summary+"".join(rows)
 
 def _metric(label,value,sub=""):
     return f"<div class='metric'><div class='metric-label'>{html.escape(label,quote=False)}</div><div class='metric-value'>{html.escape(str(value))}</div><div class='metric-sub'>{html.escape(sub)}</div></div>"
