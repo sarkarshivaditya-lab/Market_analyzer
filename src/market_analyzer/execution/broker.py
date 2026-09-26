@@ -159,7 +159,12 @@ class ExecutionEngine:
             positions=dict(self.broker.positions)
         positions=positions or {}
         results=[]
-        for row in targets.to_dict("records"):
+        records=targets.to_dict("records")
+        target_tickers={str(row["tic"]) for row in records}
+        for ticker in positions:
+            if str(ticker) not in target_tickers:
+                records.append({"tic":str(ticker),"target_weight":0.0})
+        for row in records:
             ticker=str(row["tic"]); price=float(prices.get(ticker,0.0))
             if price<=0: continue
             target_qty=max(0.0,float(row.get("target_weight",0.0))*self.capital/price)
