@@ -18,4 +18,11 @@ class PaperTradingSession:
     def rebalance(self,targets: pd.DataFrame,prices: dict[str,float]) -> dict:
         orders=self.engine.rebalance(targets,prices)
         equity=self.broker.mark_to_market(prices)
-        return {"orders":orders,"snapshot":self.broker.snapshot(),"equity":equity}
+        snapshot=self.broker.snapshot()
+        position_rows=[]
+        for ticker,quantity in snapshot["positions"].items():
+            price=float(self.broker.last_prices.get(ticker,0.0))
+            position_rows.append({"tic":ticker,"quantity":quantity,"price":price,"market_value":quantity*price})
+        for row in position_rows:
+            row["actual_weight"]=row["market_value"]/equity if equity else 0.0
+        return {"orders":orders,"snapshot":snapshot,"equity":equity,"positions":position_rows}
