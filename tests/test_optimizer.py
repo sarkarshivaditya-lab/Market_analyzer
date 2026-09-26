@@ -29,3 +29,14 @@ def test_optimizer_labels_asset_index_for_portfolio_merge():
     frame = w.rename("target_weight").reset_index()
     assert list(frame.columns) == ["tic", "target_weight"]
     assert set(frame["tic"]) == set("ABCD")
+
+
+def test_optimizer_can_use_risk_adjusted_expected_returns():
+    rng = np.random.default_rng(11)
+    returns = pd.DataFrame(rng.normal(0, .01, (300, 3)), columns=["SAFE", "RISKY", "MID"])
+    raw = pd.Series({"SAFE": .04, "RISKY": .10, "MID": .06})
+    risk_adjusted = pd.Series({"SAFE": .04, "RISKY": .01, "MID": .03})
+    optimizer = PortfolioOptimizer()
+    raw_weights = optimizer.optimize(raw, returns)
+    adjusted_weights = optimizer.optimize(risk_adjusted, returns)
+    assert adjusted_weights["SAFE"] >= raw_weights["SAFE"] - 1e-9
