@@ -17,6 +17,9 @@ class StressReport:
     worst_mean_drawdown: float
     p05_return: float
     p01_return: float
+    return_std: float
+    path_dispersion: float
+    collapsed: bool
 
 
 class TimeGANStressTester:
@@ -42,7 +45,7 @@ class TimeGANStressTester:
             np.stack([values[i:i + sequence_length] for i in range(len(values) - sequence_length + 1)])
         )
 
-    def fit(self, values: np.ndarray, epochs: int = 1, batch_size: int = 128) -> "TimeGANStressTester":
+    def fit(self, values: np.ndarray, epochs: int = 5, batch_size: int = 128) -> "TimeGANStressTester":
         sequences = self.make_sequences(values, self.sequence_length)
         loader = DataLoader(
             TensorDataset(sequences),
@@ -73,6 +76,9 @@ class TimeGANStressTester:
         total_returns = np.prod(1.0 + portfolio_returns, axis=1) - 1.0
         wealth = np.cumprod(1.0 + portfolio_returns, axis=1)
         drawdowns = wealth / np.maximum.accumulate(wealth, axis=1) - 1.0
+        return_std=float(np.std(total_returns))
+        path_dispersion=float(np.mean(np.std(portfolio_returns,axis=1)))
+        collapsed=bool(return_std < 1e-4 or path_dispersion < 1e-5)
         return StressReport(
             synthetic_paths=len(samples),
             horizon=samples.shape[1],
@@ -80,4 +86,7 @@ class TimeGANStressTester:
             worst_mean_drawdown=float(np.min(np.mean(drawdowns, axis=0))),
             p05_return=float(np.quantile(total_returns, 0.05)),
             p01_return=float(np.quantile(total_returns, 0.01)),
+            return_std=return_std,
+            path_dispersion=path_dispersion,
+            collapsed=collapsed,
         )
