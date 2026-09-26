@@ -10,7 +10,7 @@ def yahoo_symbol(ticker: str) -> str:
     ticker = str(ticker).strip()
     if not ticker:
         raise ValueError("ticker must not be empty")
-    if ticker.endswith(".NS") or ticker.startswith("^") or "=" in ticker or ticker.endswith(".BO"):
+    if ticker.endswith(".NS") or ticker.startswith("^") or "=" in ticker or ticker.endswith(".BO") or ticker in {"DX-Y.NYB"}:
         return ticker
     return f"{ticker}.NS"
 
