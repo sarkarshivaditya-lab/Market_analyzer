@@ -93,4 +93,4 @@ def test_nse_fetch_caches_and_filters(monkeypatch, tmp_path):
 def test_nse_legacy_url_is_used_before_udiff():
     client = NSEBhavcopyMarketData("2024-07-05", "2024-07-06", tickers=["INFY"])
     assert "/content/historical/EQUITIES/2024/JUL/cm05JUL2024bhav.csv.zip" in client._url(pd.Timestamp("2024-07-05"))
-    assert "/content/cm/BhavCopy_NSE_CM_0_0_0_20240708_F_0000.csv.zip" == client._url(pd.Timestamp("2024-07-08"))
+    assert "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_20240708_F_0000.csv.zip" == client._url(pd.Timestamp("2024-07-08"))
