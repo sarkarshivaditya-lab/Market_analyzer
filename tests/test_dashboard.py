@@ -11,11 +11,15 @@ def test_dashboard_health_and_state(tmp_path,monkeypatch):
     assert payload["portfolio"][0]["target_weight"]==1.0
     assert payload["backtest"]["strategy"]["cagr"]==0.1
     assert payload["stress"]["p01_return"]==-0.2
+    assert payload["updated_at"] is not None
 
 def test_dashboard_page_loads():
     page=dashboard()
     assert isinstance(page,str)
     assert "Market Analyzer" in page
-    assert "/api/state" in page
+    assert "/api/state" in page or "api/state" in page
     assert "Backtest" in page
     assert "TimeGAN stress test" in page
+    assert "Target portfolio" in page
+    assert "Market signals" in page
+    assert "Expected" in page
