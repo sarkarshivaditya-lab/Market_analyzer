@@ -26,7 +26,7 @@ def walk_forward_windows(
     This purge prevents a forward-return target at the train boundary from
     consuming observations that belong to the test period.
     """
-    unique = pd.DatetimeIndex(pd.to_datetime(dates).normalize().unique()).sort_values()
+    unique = pd.DatetimeIndex(pd.to_datetime(dates).dt.normalize().unique()).sort_values()
     if len(unique) < min_train_days + horizon_days + test_days:
         return
     step_days = step_days or test_days
