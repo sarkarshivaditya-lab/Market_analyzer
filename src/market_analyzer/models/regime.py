@@ -36,6 +36,10 @@ class MarketRegimeModel:
             self.labels[int(state)] = names[min(rank, len(names)-1)]
         return self
 
+    def predict(self, frame: pd.DataFrame) -> pd.DataFrame:
+        """Return regime predictions using the same interface as the pipeline."""
+        return self.predict_latest(frame)
+
     def predict_latest(self, frame: pd.DataFrame) -> pd.DataFrame:
         x = frame[self.features].replace([np.inf, -np.inf], np.nan)
         valid = x.notna().all(axis=1)
