@@ -49,3 +49,12 @@ def test_optimizer_can_retain_cash_with_cash_allowed():
     assert (weights >= 0).all()
     assert (weights <= .35 + 1e-9).all()
     assert weights.sum() <= 1.0 + 1e-9
+
+def test_optimizer_can_retain_cash_with_fewer_assets_than_cap_requires():
+    returns = pd.DataFrame(np.zeros((20, 2)), columns=["A", "B"])
+    mu = pd.Series([0.01, 0.02], index=["A", "B"])
+    weights = PortfolioOptimizer().optimize(mu, returns, allow_cash=True)
+    assert set(weights.index) == {"A", "B"}
+    assert (weights >= 0).all()
+    assert (weights <= .35 + 1e-9).all()
+    assert weights.sum() <= 1.0 + 1e-9
