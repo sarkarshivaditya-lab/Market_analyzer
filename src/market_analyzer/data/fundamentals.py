@@ -79,7 +79,10 @@ class SecCompanyFactsProvider:
 
 def _safe_ratio(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
     num=pd.to_numeric(numerator,errors="coerce")
-    den=pd.to_numeric(denominator,errors="coerce").replace(0,np.nan)
+    den=pd.to_numeric(denominator,errors="coerce")
+    if not isinstance(num,pd.Series): num=pd.Series(num,index=den.index if isinstance(den,pd.Series) else None)
+    if not isinstance(den,pd.Series): den=pd.Series(den,index=num.index)
+    den=den.replace(0,np.nan)
     return num/den
 
 def enrich_fundamentals(frame:pd.DataFrame) -> pd.DataFrame:
