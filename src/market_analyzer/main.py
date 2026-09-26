@@ -93,7 +93,10 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     portfolio=PortfolioOptimizer().optimize(expected,returns)
     portfolio=portfolio.rename("target_weight").reset_index()
     portfolio=portfolio.merge(latest[["signal","risk_state"]].reset_index(),on="tic",how="left")
-    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":build_market_brief(signals,portfolio),"walk_forward_windows":windows}
+    brief=build_market_brief(signals,portfolio)
+    from market_analyzer.dashboard.app import set_state
+    set_state(signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief)
+    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":brief,"walk_forward_windows":windows}
 
 if __name__=="__main__":
     result=run()
