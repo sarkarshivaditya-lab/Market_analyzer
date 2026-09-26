@@ -30,18 +30,29 @@ FEATURES=[
 "breadth_pct_positive_5d","breadth_median_return_1d","breadth_median_return_5d","market_return_dispersion_1d",
 "market_return_dispersion_5d","market_cross_sectional_range_1d","sector_leader_return_20d","sector_laggard_return_20d",
 "sector_dispersion_20d","spy_return_20d_context","spy_volatility_20d_context","relative_return_20d_vs_spy",
-"relative_volatility_vs_spy"]
+"relative_volatility_vs_spy",
+"fund_revenue","fund_net_income","fund_assets","fund_liabilities","fund_equity","fund_cash",
+"fund_revenue_growth","fund_net_income_growth","fund_profit_margin","fund_debt_to_assets","fund_equity_ratio","fund_cash_to_assets",
+"fund_revenue_log","fund_net_income_log","fund_assets_log","fund_liabilities_log","fund_equity_log","fund_cash_log",
+"news_count","news_sentiment","news_sentiment_3d","news_sentiment_7d","news_count_3d","news_count_7d"]
 
 def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_days=756,test_days=21,fundamental_snapshots=None,news_items=None):
     symbols=symbols or ["SPY","QQQ","TLT","GLD"]
-    market=MarketData(symbols).fetch(start,end); MarketData.validate(market)
+    market=MarketData(symbols).fetch(start,end)
+    MarketData.validate(market)
     macro=MacroData().fetch(start,end)
     features=MacroData.merge_asof(market,macro)
     context=MarketContextData().fetch(start,end)
     features=MarketContextData.merge_asof(features,context)
     features=enrich_context(features)
-    if fundamental_snapshots: features=merge_fundamentals_asof(features,fundamental_snapshots)
-    if news_items: features=features.merge(aggregate_news(news_items),left_on=["date","tic"],right_on=["date","tic"],how="left")
+    if fundamental_snapshots:
+        features=merge_fundamentals_asof(features,fundamental_snapshots)
+    if news_items:
+        news_frame=aggregate_news(news_items)
+        features=features.merge(news_frame,on=["date","tic"],how="left")
+    for column in [c for c in features.columns if c.startswith("fund_") or c.startswith("news_")]:
+        features[column]=pd.to_numeric(features[column],errors="coerce")
+    features[["news_count","news_sentiment","news_count_3d","news_count_7d","news_sentiment_3d","news_sentiment_7d"]]=features.reindex(columns=["news_count","news_sentiment","news_count_3d","news_count_7d","news_sentiment_3d","news_sentiment_7d"]).fillna(0.0)
     features=FeatureEngineer(include_vix=False,include_turbulence=True).transform(features)
     usable=[c for c in FEATURES if c in features.columns]
     dates=pd.to_datetime(features["date"])
@@ -52,7 +63,8 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
         train,test=split_frame(features,window)
         base=MultiHorizonForecaster(horizons=horizons).fit(train,usable,train_end=window.train_end)
         pred=base.predict(test)
-        pred["window_test_start"]=window.test_start; pred["window_test_end"]=window.test_end
+        pred["window_test_start"]=window.test_start
+        pred["window_test_end"]=window.test_end
         oos_parts.append(pred)
     forecasts=pd.concat(oos_parts,ignore_index=True).drop_duplicates(["date","tic"])
     history=forecasts.merge(features,on=["date","tic"],how="left")
@@ -62,7 +74,8 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     if len(history)<250: raise ValueError("Insufficient out-of-sample history for ensemble training.")
     history=history.sort_values("date").reset_index(drop=True)
     split=max(100,int(len(history)*0.8))
-    meta_train=history.iloc[:split].copy(); calibration_frame=history.iloc[split:].copy()
+    meta_train=history.iloc[:split].copy()
+    calibration_frame=history.iloc[split:].copy()
     calibrator_model=IntelligenceEnsemble().fit(meta_train,meta_features)
     calibration_pred=calibrator_model.predict(calibration_frame)
     calibration_frame=calibration_frame.merge(calibration_pred,on=["date","tic"],how="left")
