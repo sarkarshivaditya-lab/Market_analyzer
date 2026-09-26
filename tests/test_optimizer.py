@@ -40,3 +40,12 @@ def test_optimizer_can_use_risk_adjusted_expected_returns():
     raw_weights = optimizer.optimize(raw, returns)
     adjusted_weights = optimizer.optimize(risk_adjusted, returns)
     assert adjusted_weights["SAFE"] >= raw_weights["SAFE"] - 1e-9
+
+def test_optimizer_can_retain_cash_with_cash_allowed():
+    rng = np.random.default_rng(13)
+    returns = pd.DataFrame(rng.normal(0, .01, (300, 3)), columns=["A","B","C"])
+    mu = pd.Series([0.0, 0.0, 0.0], index=["A","B","C"])
+    weights = PortfolioOptimizer().optimize(mu, returns, allow_cash=True)
+    assert (weights >= 0).all()
+    assert (weights <= .35 + 1e-9).all()
+    assert weights.sum() <= 1.0 + 1e-9
