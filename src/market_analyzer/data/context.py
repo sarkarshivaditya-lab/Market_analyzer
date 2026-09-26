@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from market_analyzer.data.yahoo import YahooMarketData
 
-DEFAULT_BREADTH_UNIVERSE=["RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK","SBIN","ITC","LT","BHARTIARTL","AXISBANK","KOTAKBANK","HINDUNILVR","MARUTI","SUNPHARMA","ADANIENT","NTPC","POWERGRID","ONGC","TATAMOTORS","WIPRO"]
+DEFAULT_BREADTH_UNIVERSE=["RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK","SBIN","ITC","LT","BHARTIARTL","AXISBANK"]
 
 class MarketContextData:
     def __init__(self,breadth_universe=None,sector_symbols=None):
