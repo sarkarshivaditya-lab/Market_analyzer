@@ -10,3 +10,12 @@ def test_optimizer_respects_long_only_and_cap():
     assert np.isclose(w.sum(), 1.0)
     assert (w >= 0).all()
     assert (w <= .35 + 1e-9).all()
+
+import pytest
+from market_analyzer.risk.optimizer import PortfolioConstraints
+
+def test_optimizer_rejects_infeasible_max_weight():
+    expected = pd.Series({"A": 0.1, "B": 0.1})
+    returns = pd.DataFrame(np.zeros((20, 2)), columns=["A", "B"])
+    with pytest.raises(ValueError, match="infeasible"):
+        PortfolioOptimizer(PortfolioConstraints(max_weight=0.4)).optimize(expected, returns)
