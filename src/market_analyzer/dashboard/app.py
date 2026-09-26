@@ -91,7 +91,7 @@ pre{white-space:pre-wrap;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospa
 <section class='grid overview' id='overview'></section>
 
 <section class='grid main section-gap'>
-<div class='card chart-lg'><div class='card-head'><div><h2>Price & model signal</h2><div class='sub' id='chart-sub'>Select an NSE stock</div></div><div class='toolbar'><select id='ticker' class='select'></select><button class='btn range active' data-range='90'>3M</button><button class='btn range' data-range='252'>1Y</button><button class='btn range' data-range='0'>ALL</button></div></div>
+<div class='card chart-lg'><div class='card-head'><div><h2>Market signals · Price & model signal</h2><div class='sub' id='chart-sub'>Select an NSE stock</div></div><div class='toolbar'><select id='ticker' class='select'></select><button class='btn range active' data-range='90'>3M</button><button class='btn range' data-range='252'>1Y</button><button class='btn range' data-range='0'>ALL</button></div></div>
 <div class='chart-wrap'><canvas id='price-chart'></canvas><div class='tooltip' id='price-tip'></div></div>
 <div class='legend'><span><i class='dot' style='background:#4ea1ff'></i>Close</span><span><i class='dot' style='background:#36d399'></i>SMA20</span><span><i class='dot' style='background:#a78bfa'></i>SMA50</span><span><i class='dot' style='background:#91a0b5'></i>Bollinger</span><span>▲ Overweight</span><span>▼ Underweight</span></div></div>
 <div class='card'><div class='card-head'><div><h2>Model state</h2><div class='sub' id='signal-date'>Latest observation</div></div></div><div id='risk-panel'></div></div>
@@ -103,7 +103,7 @@ pre{white-space:pre-wrap;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospa
 </section>
 
 <section class='grid two section-gap'>
-<div class='card chart-lg'><div class='card-head'><div><h2>Strategy vs NIFTY 50</h2><div class='sub'>Indexed equity curve from the existing backtest</div></div></div><canvas id='equity-chart'></canvas></div>
+<div class='card chart-lg'><div class='card-head'><div><h2>Backtest · Strategy vs NIFTY 50</h2><div class='sub'>Indexed equity curve from the existing backtest</div></div></div><canvas id='equity-chart'></canvas></div>
 <div class='card chart-lg'><div class='card-head'><div><h2>Drawdown</h2><div class='sub'>Strategy peak-to-trough path</div></div></div><canvas id='drawdown-chart'></canvas></div>
 </section>
 
@@ -114,7 +114,7 @@ pre{white-space:pre-wrap;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospa
 </section>
 
 <section class='grid two section-gap'>
-<div class='card chart-sm'><div class='card-head'><div><h2>TimeGAN stress</h2><div class='sub'>Distribution of synthetic portfolio-horizon returns</div></div><span id='stress-status' class='signal neutral'>NO DATA</span></div><canvas id='stress-chart'></canvas><div id='stress-kpis' class='kpi-grid'></div></div>
+<div class='card chart-sm'><div class='card-head'><div><h2>TimeGAN stress test</h2><div class='sub'>Distribution of synthetic portfolio-horizon returns</div></div><span id='stress-status' class='signal neutral'>NO DATA</span></div><canvas id='stress-chart'></canvas><div id='stress-kpis' class='kpi-grid'></div></div>
 <div class='card chart-sm'><div class='card-head'><div><h2>Paper trading</h2><div class='sub'>Paper account only — live execution remains disabled</div></div></div><div id='paper-kpis' class='kpi-grid'></div><div id='paper-positions'></div><div class='note'>Paper equity history is displayed when persisted by the account state; otherwise the panel remains a current-account snapshot.</div></div>
 </section>
 
@@ -181,7 +181,7 @@ function updateStock(){
  document.getElementById('risk-panel').innerHTML='<div class="kpi-grid"><div class="kpi"><div class="label">Signal</div><div class="value small-value">'+esc(latest.signal||'—')+'</div></div><div class="kpi"><div class="label">Expected return</div><div class="value small-value '+(exp>=0?'up':'down')+'">'+fmtPct(exp,2)+'</div></div><div class="kpi"><div class="label">Confidence</div><div class="value small-value">'+fmtPct(conf)+'</div></div></div><div class="risk-grid" style="margin-top:12px"><div class="risk-row"><span>Crash risk</span><div class="track"><div class="fill" style="width:'+Math.max(0,Math.min(100,crash*100))+'%;background:#fb7185"></div></div><b>'+fmtPct(crash)+'</b></div><div class="risk-row"><span>Anomaly</span><div class="track"><div class="fill" style="width:'+Math.max(0,Math.min(100,anom*100))+'%;background:#fbbf24"></div></div><b>'+fmtNum(anom)+'</b></div></div><div class="note">Signal markers are drawn on the price series at the dates where the model emitted an OVERWEIGHT or UNDERWEIGHT decision.</div>';
 }
 function renderRegime(){
- const r=state.market?.regime||[];const bar=document.getElementById('regime-bar');if(!r.length){bar.innerHTML=_empty('No regime history');return}
+ const r=state.market?.regime||[];const bar=document.getElementById('regime-bar');if(!r.length){bar.innerHTML='<div class="empty">No regime history</div>';return}
  const groups=[];r.forEach(x=>{const last=groups[groups.length-1];if(last&&last.label===x.label)last.count++;else groups.push({label:x.label,count:1,start:x.date,end:x.date})});groups.forEach((g,i)=>{g.end=r.find((x,j)=>j===r.length-1||r[j+1].date===x.date&&false)?.date||g.end});
  const colors=['#4ea1ff','#36d399','#a78bfa','#fbbf24','#fb7185'];bar.innerHTML=groups.map((g,i)=>'<div class="regime-segment" title="'+esc(g.label)+'" style="width:'+Math.max(2,g.count/r.length*100)+'%;background:'+colors[i%colors.length]+'"><div class="regime-label">'+esc(g.label)+'</div></div>').join('');
  const last=r[r.length-1];document.getElementById('regime-now').textContent=last.label||'UNKNOWN';document.getElementById('regime-now').className='signal '+(String(last.label||'').toLowerCase().includes('risk')?'down':'neutral');
@@ -189,7 +189,7 @@ function renderRegime(){
 function renderAllocation(){
  const rows=(state.portfolio||[]).slice().sort((a,b)=>(Number(b.target_weight)||0)-(Number(a.target_weight)||0));const total=rows.reduce((a,r)=>a+Math.max(0,Number(r.target_weight)||0),0);
  document.getElementById('portfolio-state').textContent=total<=0?'CASH ONLY':(total<.5?'LOW CONVICTION':'INVESTED');
- document.getElementById('allocation').innerHTML=rows.length?rows.map(r=>{const w=Math.max(0,Number(r.target_weight)||0);return '<div class="alloc-row"><b>'+esc(r.tic)+'</b><div class="alloc-bar"><i style="width:'+Math.min(100,w*100)+'%"></i></div><span>'+fmtPct(w)+'</span></div>'}).join(''):_empty('No portfolio allocation loaded');
+ document.getElementById('allocation').innerHTML=rows.length?rows.map(r=>{const w=Math.max(0,Number(r.target_weight)||0);return '<div class="alloc-row"><b>'+esc(r.tic)+'</b><div class="alloc-bar"><i style="width:'+Math.min(100,w*100)+'%"></i></div><span>'+fmtPct(w)+'</span></div>'}).join(''):'<div class="empty">No portfolio allocation loaded</div>';
 }
 function renderPerformance(){
  const rows=state.performance?.series||[];const dates=rows.map(x=>x.date);
@@ -210,7 +210,7 @@ function renderStress(){
 }
 function renderPaper(){
  const p=state.paper||{},snap=p.snapshot||{},positions=p.positions||[];document.getElementById('paper-kpis').innerHTML=[['Equity',fmtNum(snap.equity)],['Cash',fmtNum(snap.cash)],["Today's notional",fmtNum(snap.daily_notional)]].map(x=>'<div class="kpi"><div class="label">'+x[0]+'</div><div class="value small-value">'+x[1]+'</div></div>').join('');
- document.getElementById('paper-positions').innerHTML=positions.length?positions.map(r=>'<div class="position"><b>'+esc(r.tic)+'</b><span>'+fmtNum(r.quantity,2)+' @ '+fmtNum(r.price)+'</span><b>'+fmtPct(r.actual_weight)+'</b></div>').join(''):_empty('No open paper positions');
+ document.getElementById('paper-positions').innerHTML=positions.length?positions.map(r=>'<div class="position"><b>'+esc(r.tic)+'</b><span>'+fmtNum(r.quantity,2)+' @ '+fmtNum(r.price)+'</span><b>'+fmtPct(r.actual_weight)+'</b></div>').join(''):'<div class="empty">No open paper positions</div>';
 }
 function renderBrief(){document.getElementById('brief').textContent=state.brief||'No analysis loaded.';document.getElementById('updated').textContent=state.updated_at?'Updated '+state.updated_at:'No analysis state loaded'}
 function render(){renderOverview();renderTicker();updateStock();renderRegime();renderAllocation();renderPerformance();renderStress();renderPaper();renderBrief()}
