@@ -18,6 +18,7 @@ def main() -> None:
     parser.add_argument("--min-history-sessions", type=int, default=756)
     parser.add_argument("--min-coverage-ratio", type=float, default=0.70)
     parser.add_argument("--min-median-turnover", type=float, default=10_000_000.0)
+    parser.add_argument("--summary-only", action="store_true")
     args = parser.parse_args()
 
     store = NSELocalMarketStore(args.store)
@@ -43,6 +44,9 @@ def main() -> None:
     print(f"symbols={len(registry)} eligible={len(eligible)} rejected={len(registry) - len(eligible)} output={output}")
     print("=== REJECTION REASONS ===")
     print(reasons.to_string() if not reasons.empty else "None.")
+    if args.summary_only:
+        return
+
     print("=== ELIGIBLE UNIVERSE ===")
     print(
         eligible[["tic", "first_date", "last_date", "observations", "coverage_ratio", "median_turnover"]]
