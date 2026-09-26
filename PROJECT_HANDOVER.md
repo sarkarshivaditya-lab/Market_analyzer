@@ -13,6 +13,20 @@ Latest commit message: document Zerodha authentication and market data
 
 The repository is an AI-driven Indian-market financial intelligence and portfolio-decision platform. It currently contains market ingestion, technical/context features, multi-horizon forecasting, crash-risk classification, regime detection, anomaly scoring, a stacked ensemble, probability calibration, portfolio optimization, backtesting, TimeGAN stress testing, FastAPI dashboard, paper trading, and guarded Zerodha execution scaffolding.
 
+## Current-session audit and Goal 3 milestone
+
+Audit date: 2026-09-26.
+
+The live main branch was re-audited before dashboard work. The handover's recorded latest audited commit (45b0763e...) was stale; the actual starting HEAD was 8d6106503a70e03216b26514a3db356d6ee95293, which already included the NSE CM-UDiFF provider and its tests. src/market_analyzer/main.py also exists and is the current orchestrator; the earlier concern that main.py was difficult to retrieve is no longer applicable.
+
+The dashboard milestone has now been implemented. /api/state remains unchanged as the primary endpoint, with backward-compatible state persistence and additional market/performance fields. The dashboard now uses browser-native canvas/SVG-free rendering with no paid chart dependency. It provides selected NSE price/candlestick views with SMA20/SMA50/Bollinger overlays, latest signal markers, model expected-return/confidence/crash/anomaly panels, market-regime timeline, portfolio allocation, strategy-versus-NIFTY50 equity curve, drawdown, rolling risk, turnover, transaction cost, TimeGAN stress distribution, and paper-account/equity/position visualization.
+
+Historical model outputs are not presented as an out-of-sample trading history. Price-chart signal markers are restricted to the latest model decision because the existing current-model inference path can generate retrospective in-sample outputs across historical dates. The backtest charts continue to use the existing backtest engine outputs.
+
+Paper equity history is now persisted in the paper broker state from this point forward. Existing paper state files without an equity_history field remain compatible.
+
+The available GitHub connector does not expose a local shell or a push-triggered workflow-run listing for this repository. The latest commits therefore have not been locally executed by this assistant; the repository's test workflow exists at .github/workflows/tests.yml, but no check/status was returned for the new commits. This limitation must not be mistaken for a passing test result.
+
 ## Three active goals
 
 ### Goal 1 — Maximize useful data and retrain
