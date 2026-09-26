@@ -34,6 +34,48 @@ class MarketQualityReport:
         return asdict(self)
 
 
+def price_jump_details(frame: pd.DataFrame, threshold: float = 1.5) -> pd.DataFrame:
+    required = ["date", "tic", "close"]
+    missing_columns = [column for column in required if column not in frame.columns]
+    if missing_columns:
+        raise ValueError(f"Missing market columns: {missing_columns}")
+    data = frame[required].copy()
+    data["date"] = pd.to_datetime(data["date"], errors="coerce")
+    data["close"] = pd.to_numeric(data["close"], errors="coerce")
+    data["tic"] = data["tic"].astype("string").str.strip().str.upper()
+    data = data.dropna(subset=required).sort_values(["tic", "date"]).copy()
+    data["previous_close"] = data.groupby("tic")["close"].shift(1)
+    data["jump_ratio"] = data["close"] / data["previous_close"]
+    candidates = data[(data["jump_ratio"] >= threshold) | (data["jump_ratio"] <= (1 / threshold))].copy()
+    candidates["jump_pct"] = (candidates["jump_ratio"] - 1.0) * 100.0
+    return candidates[["tic", "date", "previous_close", "close", "jump_pct"]].sort_values(
+        "jump_pct", key=lambda values: values.abs(), ascending=False
+    ).reset_index(drop=True)
+
+
+def ticker_gap_details(frame: pd.DataFrame, expected_sessions: pd.DatetimeIndex | None) -> pd.DataFrame:
+    required = ["date", "tic"]
+    missing_columns = [column for column in required if column not in frame.columns]
+    if missing_columns:
+        raise ValueError(f"Missing market columns: {missing_columns}")
+    if expected_sessions is None or len(expected_sessions) == 0:
+        return pd.DataFrame(columns=["tic", "missing_sessions"])
+    data = frame[required].copy()
+    data["date"] = pd.to_datetime(data["date"], errors="coerce")
+    data["tic"] = data["tic"].astype("string").str.strip().str.upper()
+    data = data.dropna(subset=required)
+    sessions = pd.DatetimeIndex(expected_sessions).normalize().sort_values().unique()
+    rows = []
+    for tic, group in data.groupby("tic", sort=True):
+        observed = pd.DatetimeIndex(group["date"].dt.normalize().unique())
+        if len(observed):
+            expected = sessions[(sessions >= observed.min()) & (sessions <= observed.max())]
+            missing = expected.difference(observed)
+            if len(missing):
+                rows.append({"tic": tic, "missing_sessions": int(len(missing))})
+    return pd.DataFrame(rows, columns=["tic", "missing_sessions"])
+
+
 def audit_market_data(frame: pd.DataFrame, expected_sessions: pd.DatetimeIndex | None = None) -> MarketQualityReport:
     required = ["date", "open", "high", "low", "close", "volume", "tic"]
     missing_columns = [column for column in required if column not in frame.columns]
@@ -62,10 +104,7 @@ def audit_market_data(frame: pd.DataFrame, expected_sessions: pd.DatetimeIndex |
     negative_volume_rows = int((complete["volume"] < 0).sum())
     zero_volume_rows = int((complete["volume"] == 0).sum())
 
-    ordered = complete.sort_values(["tic", "date"]).copy()
-    previous_close = ordered.groupby("tic")["close"].shift(1)
-    ratio = ordered["close"] / previous_close
-    price_jump_candidates = int(((ratio >= 1.5) | (ratio <= (1 / 1.5))).fillna(False).sum())
+    price_jump_candidates = len(price_jump_details(complete))
 
     ticker_date_gaps = 0
     if expected_sessions is not None and len(expected_sessions):
