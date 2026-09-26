@@ -46,3 +46,7 @@ def test_live_execution_gate_allows_configured_broker(monkeypatch):
     engine=ExecutionEngine(FakeBroker(),ExecutionPolicy(paper_only=False,min_confidence=.5),capital=10000)
     out=engine.execute(pd.DataFrame([{"tic":"AAA","ensemble_expected_return":.1,"ensemble_confidence":.9,"target_weight":.02}]),{"AAA":100})
     assert out[0]["status"]=="ACCEPTED"
+
+
+def test_broker_paper_flag_is_explicit():
+    assert PaperBroker().paper is True
