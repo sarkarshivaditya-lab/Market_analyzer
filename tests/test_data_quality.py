@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from market_analyzer.data.quality import audit_market_data
+from market_analyzer.data.quality import audit_market_data, price_jump_details, ticker_gap_details
 
 
 def _frame():
@@ -66,3 +66,24 @@ def test_market_quality_gap_audit_ignores_pre_listing_and_post_delisting_session
     sessions = pd.DatetimeIndex(["2026-09-20","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-25","2026-09-26","2026-09-27"])
     report = audit_market_data(frame, expected_sessions=sessions)
     assert report.ticker_date_gaps == 1
+
+def test_price_jump_details_exposes_candidate_rows():
+    frame = _frame()
+    frame.loc[1, ["open", "high", "low", "close"]] = [2990, 3010, 2980, 3000]
+    details = price_jump_details(frame)
+    assert len(details) == 1
+    assert details.loc[0, "tic"] == "INFY"
+    assert details.loc[0, "previous_close"] == 1510
+    assert details.loc[0, "close"] == 3000
+
+
+def test_ticker_gap_details_reports_missing_active_sessions():
+    frame = pd.DataFrame([
+        {"date":"2026-09-24","tic":"INFY"},
+        {"date":"2026-09-25","tic":"INFY"},
+        {"date":"2026-09-24","tic":"TCS"},
+        {"date":"2026-09-26","tic":"TCS"},
+    ])
+    sessions = pd.DatetimeIndex(["2026-09-24", "2026-09-25", "2026-09-26"])
+    details = ticker_gap_details(frame, sessions)
+    assert details.to_dict("records") == [{"tic": "TCS", "missing_sessions": 1}]
