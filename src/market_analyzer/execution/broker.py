@@ -134,9 +134,14 @@ class ExecutionPolicy:
 
 class ExecutionEngine:
     def __init__(self,broker: Broker,policy: ExecutionPolicy|None=None,capital: float = 100000.0):
+        policy=policy or ExecutionPolicy()
+        if not isinstance(broker,PaperBroker) and policy.paper_only is False:
+            if os.environ.get("MARKET_ANALYZER_LIVE_TRADING") != "CONFIRMED":
+                raise ValueError("Live execution requires MARKET_ANALYZER_LIVE_TRADING=CONFIRMED.")
+
         if capital<=0:
             raise ValueError("Execution capital must be positive.")
-        self.broker=broker; self.policy=policy or ExecutionPolicy(); self.capital=float(capital)
+        self.broker=broker; self.policy=policy; self.capital=float(capital)
         if self.policy.max_order_notional<=0 or self.policy.max_daily_notional<=0:
             raise ValueError("Execution notional limits must be positive.")
         if self.policy.paper_only and not isinstance(broker,PaperBroker):
