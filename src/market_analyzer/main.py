@@ -122,10 +122,18 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     backtest_summary={"strategy":performance_metrics(backtest),"benchmark":comparison["benchmark"],"transaction_cost_bps":5.0,"slippage_bps":2.0}
     stress_weights=portfolio.set_index("tic")["target_weight"].reindex(returns.columns).fillna(0.0).to_numpy()
     stress_input=returns.reindex(columns=portfolio["tic"]).fillna(0.0).to_numpy()
-    stress_model=TimeGANStressTester(feature_dim=stress_input.shape[1],hidden_dim=16,sequence_length=20,seed=42)
-    stress_model.fit(stress_input,epochs=5,batch_size=128)
-    stress_report=stress_model.evaluate(paths=100,weights=stress_weights)
-    stress_summary=asdict(stress_report)
+    if float(stress_weights.sum()) <= 0:
+        from market_analyzer.models.stress import StressReport
+        stress_summary=asdict(StressReport(
+            synthetic_paths=0,horizon=20,mean_return=0.0,worst_mean_drawdown=0.0,
+            p05_return=0.0,p01_return=0.0,return_std=0.0,path_dispersion=0.0,
+            collapsed=False,cash_only=True
+        ))
+    else:
+        stress_model=TimeGANStressTester(feature_dim=stress_input.shape[1],hidden_dim=16,sequence_length=20,seed=42)
+        stress_model.fit(stress_input,epochs=5,batch_size=128)
+        stress_report=stress_model.evaluate(paths=100,weights=stress_weights)
+        stress_summary=asdict(stress_report)
     brief=build_market_brief(signals,portfolio)
     from market_analyzer.execution.paper import PaperTradingSession
     from market_analyzer.dashboard.app import set_state
