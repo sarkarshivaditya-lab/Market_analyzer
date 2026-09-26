@@ -20,7 +20,8 @@ Market data + macro context + point-in-time fundamentals/news
 
 ## Implemented layers
 
-- Yahoo Finance market and macro ingestion with point-in-time backward alignment.
+- Yahoo Finance NSE market ingestion with clean Indian tickers mapped internally to Yahoo .NS symbols.
+- NIFTY 50 (^NSEI) benchmark support for Indian-equity backtesting.
 - Cross-sectional breadth, sector leadership, dispersion, and relative-strength context.
 - Technical, volatility, drawdown, turbulence, macro, fundamentals, and news features.
 - Multi-horizon 1D/5D/20D return forecasting.
