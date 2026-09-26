@@ -32,7 +32,8 @@ Market data + macro context + point-in-time fundamentals/news
 - Transaction-cost/slippage-aware backtesting plus benchmark and walk-forward reports.
 - PyTorch TimeGAN adaptation for synthetic temporal stress scenarios.
 - SEC XBRL fundamentals provider using filing availability as the information boundary.
-- Timestamped RSS news ingestion. Historical backtests require a historical news archive; live RSS is not used as historical evidence.
+- Derived fundamental quality features: growth, profit margin, debt/assets, equity/assets, cash/assets, and signed log-scale features.
+- Timestamped RSS news ingestion with 3-day and 7-day rolling coverage and sentiment context.
 - FastAPI dashboard and JSON state endpoint.
 - Paper broker, rebalancing engine, and guarded Zerodha/Alpaca adapters.
 - Explicit paper-only default, order-notional limits, daily-notional limits, confidence gates, and positive-expected-return gates.
@@ -48,6 +49,7 @@ Market data + macro context + point-in-time fundamentals/news
 7. Synthetic TimeGAN paths are stress scenarios, not evidence of predictive skill.
 8. Real-money execution is disabled by default and requires explicit configuration.
 9. Broker credentials are supplied through the runtime environment rather than committed to the repository.
+10. Live RSS news is not retroactively treated as historical evidence; historical news-driven training requires timestamped archives.
 
 ## Running
 
@@ -63,9 +65,11 @@ Start the dashboard with:
 
 The default execution policy is paper-only. Live broker adapters are isolated behind the ExecutionPolicy(paper_only=False) gate and should only be enabled after independent operational, regulatory, and risk review.
 
-## Important data-provenance note
+## Data provenance
 
-The SEC provider is suitable for timestamped filing-aware fundamentals. The RSS provider is intended for live context. To train or backtest news-driven models without look-ahead bias, supply a historical news provider whose records include publication timestamps and historical availability.
+The SEC Company Facts API provides extracted XBRL company facts and filing metadata through data.sec.gov. The application uses filing dates as the information-availability boundary for its point-in-time fundamental snapshots. citeturn699279search0
+
+The RSS provider is intended for live context. Historical backtests should provide an archive of news records with publication timestamps and availability timestamps where possible.
 
 ## Upstream attribution
 
