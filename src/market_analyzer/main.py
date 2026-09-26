@@ -96,8 +96,9 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     risk_frame=risk_frame.merge(anomaly.score(features),on=["date","tic"],how="left")
     ensemble_out=ensemble.predict(risk_frame)
     risk_frame=risk_frame.merge(ensemble_out,on=["date","tic"],how="left")
-    risk_frame["positive_return_probability"]=calibrator.transform(risk_frame["positive_return_probability"].fillna(.5))
-    risk_frame["ensemble_confidence"]=(risk_frame["positive_return_probability"]-.5).abs()*2
+    raw_probability=risk_frame["positive_return_probability"].fillna(.5)
+    risk_frame["positive_return_probability"]=calibrator.transform(raw_probability)
+    risk_frame["ensemble_confidence"]=(raw_probability-.5).abs()*2
     decision_frame=risk_frame[["date","tic","ensemble_expected_return","positive_return_probability","ensemble_confidence","crash_probability","regime_probability","anomaly_score","regime_label"]].copy()
     signals=build_investment_signals(decision_frame,pd.DataFrame(columns=["date","tic","crash_probability"]),pd.DataFrame(columns=["date","tic","regime_probability"]),pd.DataFrame(columns=["date","tic","anomaly_score"]))
     latest=signals.sort_values("date").groupby("tic",as_index=False).tail(1).set_index("tic")
