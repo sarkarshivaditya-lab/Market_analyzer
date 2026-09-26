@@ -75,3 +75,26 @@ The RSS provider is intended for live context. Historical backtests should provi
 ## Upstream attribution
 
 The repository contains a modern PyTorch adaptation of the TimeGAN architecture and incorporates design patterns inspired by FinRL preprocessing/risk/backtesting workflows. The implementation is maintained as an independent product codebase and does not claim novelty over those established techniques.
+
+
+## Zerodha / Kite Connect
+
+The analyzer supports Zerodha as an optional NSE market-data provider. Yahoo remains the default.
+
+Set credentials in the shell, never in source control:
+
+    export KITE_API_KEY="your_api_key"
+    export KITE_API_SECRET="your_api_secret"
+
+Run the interactive login helper:
+
+    PYTHONPATH=src python scripts/kite_login.py
+
+The helper prints the Kite login URL. After Zerodha redirects to the registered callback, copy the one-time request_token into the helper. It exchanges that token for the daily access_token.
+
+For analyzer market data:
+
+    export KITE_ACCESS_TOKEN="your_daily_access_token"
+    export MARKET_ANALYZER_MARKET_DATA_PROVIDER=zerodha
+
+Live order execution remains separately gated and is not enabled by selecting the Zerodha market-data provider.
