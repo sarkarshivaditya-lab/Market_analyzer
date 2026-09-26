@@ -50,3 +50,13 @@ def test_live_execution_gate_allows_configured_broker(monkeypatch):
 
 def test_broker_paper_flag_is_explicit():
     assert PaperBroker().paper is True
+
+
+def test_rebalance_liquidates_stale_positions():
+    broker=PaperBroker(starting_cash=10000)
+    broker.submit(Order("OLD","BUY",50,price=100))
+    engine=ExecutionEngine(broker,ExecutionPolicy(max_order_notional=10000,max_daily_notional=10000),capital=10000)
+    out=engine.rebalance(pd.DataFrame([{"tic":"NEW","target_weight":0.0}]),{"OLD":100,"NEW":100})
+    assert out and out[0]["ticker"]=="OLD"
+    assert out[0]["side"]=="SELL"
+    assert broker.positions["OLD"]==0
