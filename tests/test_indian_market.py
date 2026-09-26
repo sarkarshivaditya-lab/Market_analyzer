@@ -12,3 +12,10 @@ def test_existing_exchange_and_index_symbols_are_preserved():
 
 def test_bse_symbol_is_preserved():
     assert yahoo_symbol("RELIANCE.BO") == "RELIANCE.BO"
+
+
+def test_indian_context_does_not_require_us_etfs():
+    from market_analyzer.data.context import MarketContextData
+    context=MarketContextData(breadth_universe=["RELIANCE","TCS"],sector_symbols=["RELIANCE","TCS"])
+    assert context.breadth_universe == ["RELIANCE","TCS"]
+    assert context.sector_symbols == ["RELIANCE","TCS"]
