@@ -150,6 +150,8 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
         signal_cols=["date","tic","signal","expected_return","confidence","crash_probability","risk_state","regime_label","anomaly_score"]
         available=[c for c in signal_cols if c in signals.columns]
         frame=frame.merge(signals[available],on=["date","tic"],how="left")
+        latest_signal_date=pd.to_datetime(signals["date"]).max()
+        frame["signal_marker"]=frame["signal"].where(frame["date"].eq(latest_signal_date))
         records=frame.replace({np.nan:None}).to_dict("records")
         for record in records:
             record["date"]=pd.Timestamp(record["date"]).strftime("%Y-%m-%d")
