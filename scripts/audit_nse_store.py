@@ -21,14 +21,14 @@ def main() -> None:
 
     store = NSELocalMarketStore(args.store)
     frame = store.load(args.start, args.end, args.tickers)
-    report = audit_market_data(frame)
-    universe = None
     if args.universe:
         universe = pd.read_csv(args.universe)
         if "tic" not in universe.columns or "eligible" not in universe.columns:
             raise ValueError("Universe CSV must contain tic and eligible columns")
-        universe = universe.loc[universe["eligible"].astype(bool), "tic"].astype(str).str.upper().unique().tolist()
-        frame = frame[frame["tic"].astype(str).str.upper().isin(universe)].copy()
+        eligible = universe.loc[universe["eligible"].astype(bool), "tic"].astype(str).str.upper().unique().tolist()
+        frame = frame[frame["tic"].astype(str).str.upper().isin(eligible)].copy()
+        print(f"universe_filter=eligible ({len(eligible)} tickers)")
+    report = audit_market_data(frame)
     print("=== MARKET QUALITY SUMMARY ===")
     print(f"valid={report.valid}")
     print(f"rows={report.rows} tickers={report.tickers}")
