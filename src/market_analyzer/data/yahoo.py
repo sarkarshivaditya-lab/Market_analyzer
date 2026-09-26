@@ -1,8 +1,18 @@
-"""Market-data ingestion utilities adapted from the FinRL data-flow design."""
+"""Yahoo Finance market-data ingestion with NSE symbol normalization."""
 from __future__ import annotations
 
 import pandas as pd
 import yfinance as yf
+
+
+def yahoo_symbol(ticker: str) -> str:
+    """Map clean NSE symbols to Yahoo's .NS convention."""
+    ticker = str(ticker).strip()
+    if not ticker:
+        raise ValueError("ticker must not be empty")
+    if ticker.endswith(".NS") or ticker.startswith("^") or "=" in ticker or ticker.endswith(".BO"):
+        return ticker
+    return f"{ticker}.NS"
 
 
 class YahooMarketData:
@@ -16,8 +26,9 @@ class YahooMarketData:
     def fetch(self, auto_adjust: bool = True) -> pd.DataFrame:
         frames: list[pd.DataFrame] = []
         for ticker in self.tickers:
+            yahoo_ticker = yahoo_symbol(ticker)
             frame = yf.download(
-                ticker,
+                yahoo_ticker,
                 start=self.start_date,
                 end=self.end_date,
                 auto_adjust=auto_adjust,
