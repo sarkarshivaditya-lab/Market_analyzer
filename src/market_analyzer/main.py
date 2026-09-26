@@ -116,8 +116,12 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     stress_report=stress_model.evaluate(paths=100,weights=stress_weights)
     stress_summary=asdict(stress_report)
     brief=build_market_brief(signals,portfolio)
+    from market_analyzer.execution.paper import PaperTradingSession
     from market_analyzer.dashboard.app import set_state
-    set_state(signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary,stress=stress_summary)
+    latest_prices=market.sort_values("date").groupby("tic").tail(1).set_index("tic")["close"].to_dict()
+    paper=PaperTradingSession.create(capital=100000.0,state_file="market_analyzer_paper.json")
+    paper_result=paper.rebalance(portfolio[["tic","target_weight"]],latest_prices)
+    set_state(signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary,stress=stress_summary,paper=paper_result)
     return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"stress":stress_summary,"walk_forward_windows":windows}
 
 if __name__=="__main__":
