@@ -90,7 +90,12 @@ class ZerodhaMarketData:
         """Fetch historical candles for a current instrument token."""
         params = {"from": start_date, "to": end_date}
         data = self._get(f"/instruments/historical/{int(instrument_token)}/{interval}", params)
-        frame = pd.DataFrame(data, columns=["date", "open", "high", "low", "close", "volume", "oi"])
+        candles=data.get("candles",[]) if isinstance(data,dict) else data
+        width=7 if candles and len(candles[0])>=7 else 6
+        columns=["date","open","high","low","close","volume","oi"][:width]
+        frame=pd.DataFrame(candles,columns=columns)
+        if "oi" not in frame.columns:
+            frame["oi"]=0.0
         if not frame.empty:
             frame["date"] = pd.to_datetime(frame["date"])
         return frame
