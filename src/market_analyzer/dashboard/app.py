@@ -105,7 +105,7 @@ def _render_portfolio(portfolio):
         weight=max(0.0,min(1.0,float(row.get("target_weight",0.0) or 0.0)))
         signal=html.escape(str(row.get("signal","—")))
         risk=html.escape(str(row.get("risk_state","—")))
-        reason=html.escape(str(row.get("allocation_reason","—")))
+        reason=html.escape(str(row.get("allocation_reason","—")).replace("_"," "))
         confidence=_pct(row.get("confidence"))
         rows.append(
             f"<div class='allocation'><div class='allocation-head'><span class='ticker'>{tic}</span><span>{weight:.1%}</span></div>"
