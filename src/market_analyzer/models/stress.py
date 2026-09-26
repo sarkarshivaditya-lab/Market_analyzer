@@ -20,6 +20,7 @@ class StressReport:
     return_std: float
     path_dispersion: float
     collapsed: bool
+    cash_only: bool = False
 
 
 class TimeGANStressTester:
