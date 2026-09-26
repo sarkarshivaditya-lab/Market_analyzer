@@ -28,3 +28,18 @@ def compute_market_anomaly_score(df: pd.DataFrame) -> pd.DataFrame:
     out["anomaly_score"] = score
     out["stress_flag"] = out["anomaly_score"] >= out["anomaly_score"].rolling(252).quantile(0.95)
     return out
+
+
+class MarketAnomalyDetector:
+    """Fit a lightweight anomaly scorer and expose the pipeline interface."""
+
+    def __init__(self, window: int = 60):
+        self.window = window
+        self.feature_columns = []
+
+    def fit(self, df: pd.DataFrame, feature_columns):
+        self.feature_columns = list(feature_columns)
+        return self
+
+    def score(self, df: pd.DataFrame) -> pd.DataFrame:
+        return compute_market_anomaly_score(df)[["date", "tic", "anomaly_score", "stress_flag"]]
