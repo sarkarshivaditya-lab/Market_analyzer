@@ -54,6 +54,8 @@ class IntelligenceEnsemble:
             "market_cross_sectional_range_1d", "sector_leader_return_20d",
             "sector_laggard_return_20d", "sector_dispersion_20d",
             "relative_return_20d_vs_spy", "relative_volatility_vs_spy",
+            "fund_revenue", "fund_net_income", "fund_assets", "fund_liabilities", "fund_equity", "fund_cash",
+            "news_count", "news_sentiment",
         ]
         return [c for c in preferred if c in frame.columns]
 

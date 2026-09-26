@@ -3,6 +3,8 @@ import pandas as pd
 from market_analyzer.data.market import MarketData
 from market_analyzer.data.macro import MacroData
 from market_analyzer.data.context import MarketContextData
+from market_analyzer.data.fundamentals import merge_fundamentals_asof
+from market_analyzer.data.news import aggregate_news
 from market_analyzer.features.context import enrich_context
 from market_analyzer.features.engineering import FeatureEngineer
 from market_analyzer.models.anomaly import MarketAnomalyDetector
@@ -26,7 +28,7 @@ FEATURES=[
 "sector_dispersion_20d","spy_return_20d_context","spy_volatility_20d_context","relative_return_20d_vs_spy",
 "relative_volatility_vs_spy"]
 
-def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_days=756,test_days=21):
+def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_days=756,test_days=21,fundamental_snapshots=None,news_items=None):
     symbols=symbols or ["SPY","QQQ","TLT","GLD"]
     market=MarketData(symbols).fetch(start,end); MarketData.validate(market)
     macro=MacroData().fetch(start,end)
@@ -34,6 +36,8 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     context=MarketContextData().fetch(start,end)
     features=MarketContextData.merge_asof(features,context)
     features=enrich_context(features)
+    if fundamental_snapshots: features=merge_fundamentals_asof(features,fundamental_snapshots)
+    if news_items: features=features.merge(aggregate_news(news_items),left_on=["date","tic"],right_on=["date","tic"],how="left")
     features=FeatureEngineer(include_vix=False,include_turbulence=True).transform(features)
     usable=[c for c in FEATURES if c in features.columns]
     dates=pd.to_datetime(features["date"])
