@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "market-analyzer"
 version = "0.1.0"
-description = "Research platform for market anomaly detection and forecasting"
+description = "AI financial intelligence and investment decision platform"
 requires-python = ">=3.10"
 dependencies = [
   "numpy>=1.26",
