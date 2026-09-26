@@ -67,17 +67,23 @@ class ExecutionEngine:
         self.broker=broker; self.policy=policy or ExecutionPolicy(); self.daily_notional=0.0
         if self.policy.paper_only and not isinstance(broker,PaperBroker):
             raise ValueError("paper_only=True requires PaperBroker.")
-    def rebalance(self,targets: pd.DataFrame,prices: dict[str,float],current_positions: dict[str,float]|None=None) -> list[dict]:
+    def rebalance(self, targets: pd.DataFrame, prices: dict[str,float], current_positions: dict[str,float] | None = None) -> list[dict]:
         positions=current_positions or {}
-        orders=[]
+        results=[]
         for row in targets.to_dict("records"):
-            ticker=str(row["tic"]); price=float(prices.get(ticker,0.0)); target=float(row.get("target_weight",0.0))
+            ticker=str(row["tic"]); price=float(prices.get(ticker,0.0))
             if price<=0: continue
-            target_qty=max(0.0,target*100000.0/price); delta=target_qty-float(positions.get(ticker,0.0))
-            if abs(delta*price)<1.0: continue
+            target_qty=max(0.0,float(row.get("target_weight",0.0))*100000.0/price)
+            delta=target_qty-float(positions.get(ticker,0.0))
+            notional=min(abs(delta)*price,self.policy.max_order_notional,self.policy.max_daily_notional-self.daily_notional)
+            if notional<1.0: continue
+            qty=notional/price
             side="BUY" if delta>0 else "SELL"
-            orders.append({"ticker":ticker,"side":side,"quantity":abs(delta),"order_type":"market"})
-        return self.execute(pd.DataFrame(orders),prices) if orders else []
+            if side=="SELL" and isinstance(self.broker,PaperBroker) and qty>float(positions.get(ticker,0.0)): qty=float(positions.get(ticker,0.0))
+            if qty<=0: continue
+            result=self.broker.submit(Order(ticker,side,qty)); results.append(result); self.daily_notional+=qty*price
+        return results
+
     def execute(self,decisions: pd.DataFrame,prices: dict[str,float]) -> list[dict]:
         results=[]
         for row in decisions.to_dict("records"):
