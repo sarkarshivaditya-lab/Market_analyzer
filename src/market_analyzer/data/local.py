@@ -47,7 +47,7 @@ class NSELocalMarketStore:
         for col in ["open", "high", "low", "close", "volume"]:
             data[col] = pd.to_numeric(data[col], errors="coerce")
         data = data.dropna(subset=_REQUIRED).drop_duplicates(["date", "tic"])
-        rows = [tuple(x) for x in data[_REQUIRED].itertuples(index=False, name=None)]
+        rows = [tuple(x) for x in data[["date","tic","open","high","low","close","volume"]].itertuples(index=False, name=None)]
         if not rows:
             return 0
         with self._connect() as conn:
