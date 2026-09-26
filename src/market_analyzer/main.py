@@ -217,8 +217,10 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
         record["date"]=pd.Timestamp(record["date"]).strftime("%Y-%m-%d")
     # Persist the dashboard-ready research state before stress/paper stages so a later optional stage cannot leave the workstation stale.
     from market_analyzer.dashboard.app import set_state
+    latest_signal_records=signals[signals["date"]==signals["date"].max()].copy()
+    latest_signal_records["date"]=latest_signal_records["date"].dt.strftime("%Y-%m-%d")
     set_state(
-        signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),
+        signals=latest_signal_records.to_dict("records"),
         portfolio=portfolio.to_dict("records"),
         backtest=backtest_summary,
         stress={},
