@@ -26,6 +26,8 @@ class PortfolioOptimizer:
         assets = [a for a in expected_returns.index if a in returns.columns]
         if not assets:
             return pd.Series(dtype=float)
+        if len(assets) * self.constraints.max_weight < 1.0:
+            raise ValueError("Portfolio constraints are infeasible: max_weight is too small for the number of assets.")
         mu = expected_returns.loc[assets].astype(float).fillna(0.0).to_numpy()
         hist = returns[assets].astype(float).replace([np.inf, -np.inf], np.nan).dropna(how="all")
         cov = hist.cov().fillna(0.0).to_numpy(copy=True)
@@ -41,14 +43,25 @@ class PortfolioOptimizer:
             turnover = float(np.abs(w - prev).sum())
             return -(w @ mu) + self.constraints.risk_aversion * variance + self.constraints.turnover_penalty * turnover
 
-        cons = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
+        def annualized_vol(w):
+            return float(np.sqrt(max(w @ cov @ w, 0.0)) * np.sqrt(252.0))
+
+        cons = [
+            {"type": "eq", "fun": lambda w: np.sum(w) - 1.0},
+            {"type": "ineq", "fun": lambda w: self.constraints.target_volatility - annualized_vol(w)},
+        ]
         bounds = [(0.0, self.constraints.max_weight)] * len(assets)
-        x0 = np.ones(len(assets)) / len(assets)
-        x0 = np.minimum(x0, self.constraints.max_weight)
-        x0 /= x0.sum()
+        x0 = np.zeros(len(assets))
+        remaining = 1.0
+        for i in range(len(assets)):
+            x0[i] = min(self.constraints.max_weight, remaining)
+            remaining -= x0[i]
+            if remaining <= 0:
+                break
         result = minimize(objective, x0, method="SLSQP", bounds=bounds, constraints=cons,
                           options={"maxiter": 500, "ftol": 1e-10})
         if not result.success:
+            # Preserve the hard concentration constraint even if the volatility target is infeasible.
             return pd.Series(x0, index=assets)
         weights = pd.Series(np.clip(result.x, 0.0, self.constraints.max_weight), index=assets)
         return weights / weights.sum()
