@@ -13,6 +13,7 @@ class Order:
     side: str
     quantity: float
     order_type: str = "market"
+    price: float | None = None
 
 class Broker(Protocol):
     def submit(self, order: Order) -> dict: ...
@@ -26,10 +27,15 @@ class PaperBroker:
     def submit(self, order: Order) -> dict:
         if order.side not in {"BUY","SELL"} or order.quantity<=0: raise ValueError("Invalid paper order.")
         current=self.positions.get(order.ticker,0.0)
+        if order.price is None or order.price <= 0: raise ValueError("Paper orders require a positive fill price.")
+        notional=float(order.quantity)*float(order.price)
         if order.side=="SELL" and order.quantity>current: raise ValueError("Paper broker cannot short or oversell a position.")
         if order.side=="BUY":
+            if notional>self.cash: raise ValueError("Insufficient paper cash for order.")
+            self.cash-=notional
             self.positions[order.ticker]=current+order.quantity
         else:
+            self.cash+=notional
             self.positions[order.ticker]=current-order.quantity
         fill={"ticker":order.ticker,"side":order.side,"quantity":float(order.quantity),"status":"FILLED"}
         self.orders.append(fill); return fill
@@ -81,7 +87,7 @@ class ExecutionEngine:
             side="BUY" if delta>0 else "SELL"
             if side=="SELL" and isinstance(self.broker,PaperBroker) and qty>float(positions.get(ticker,0.0)): qty=float(positions.get(ticker,0.0))
             if qty<=0: continue
-            result=self.broker.submit(Order(ticker,side,qty)); results.append(result); self.daily_notional+=qty*price
+            result=self.broker.submit(Order(ticker,side,qty,price=price)); results.append(result); self.daily_notional+=qty*price
         return results
 
     def execute(self,decisions: pd.DataFrame,prices: dict[str,float]) -> list[dict]:
@@ -91,5 +97,5 @@ class ExecutionEngine:
             confidence=float(row.get("ensemble_confidence",row.get("confidence",0.0))); weight=float(row.get("target_weight",0.0))
             price=float(prices.get(ticker,0.0)); notional=min(max(0.0,weight)*100000.0,self.policy.max_order_notional,self.policy.max_daily_notional-self.daily_notional)
             if price<=0 or notional<=0 or (self.policy.require_positive_expected_return and expected<=0) or confidence<self.policy.min_confidence: continue
-            result=self.broker.submit(Order(ticker,"BUY",notional/price)); results.append(result); self.daily_notional+=notional
+            result=self.broker.submit(Order(ticker,"BUY",notional/price,price=price)); results.append(result); self.daily_notional+=notional
         return results
