@@ -96,8 +96,8 @@ def _render_portfolio(portfolio):
     eligible_count=sum(bool(row.get("portfolio_eligible",False)) for row in portfolio)
     low_confidence_count=sum(str(row.get("allocation_reason","")).startswith("LOW_CONFIDENCE") for row in portfolio)
     high_crash_count=sum("HIGH_CRASH_RISK" in str(row.get("allocation_reason","")) for row in portfolio)
-    status="LOW CONVICTION" if total_weight < 0.5 else "INVESTED"
-    status_class="warning" if total_weight < 0.5 else "safe"
+    status="CASH ONLY" if total_weight <= 1e-9 else ("LOW CONVICTION" if total_weight < 0.5 else "INVESTED")
+    status_class="warning" if total_weight <= 1e-9 or total_weight < 0.5 else "safe"
     summary=f"<div class='metrics'><div class='metric'><div class='metric-label'>Equity exposure</div><div class='metric-value'>{total_weight:.1%}</div><div class='metric-sub'>target portfolio</div></div><div class='metric'><div class='metric-label'>Cash</div><div class='metric-value'>{cash_weight:.1%}</div><div class='metric-sub'>unallocated</div></div><div class='metric'><div class='metric-label'>Portfolio state</div><div class='metric-value'><span class='pill {status_class}'>{status}</span></div><div class='metric-sub'>{eligible_count} eligible · {low_confidence_count} low confidence · {high_crash_count} high crash</div></div></div>"
     rows=[]
     for row in portfolio:
