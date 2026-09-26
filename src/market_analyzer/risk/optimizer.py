@@ -26,7 +26,7 @@ class PortfolioOptimizer:
         assets = [a for a in expected_returns.index if a in returns.columns]
         if not assets:
             return pd.Series(dtype=float, name="target_weight").rename_axis("tic")
-        if len(assets) * self.constraints.max_weight < 1.0:
+        if not allow_cash and len(assets) * self.constraints.max_weight < 1.0:
             raise ValueError("Portfolio constraints are infeasible: max_weight is too small for the number of assets.")
         mu = expected_returns.loc[assets].astype(float).fillna(0.0).to_numpy()
         hist = returns[assets].astype(float).replace([np.inf, -np.inf], np.nan).dropna(how="all")
