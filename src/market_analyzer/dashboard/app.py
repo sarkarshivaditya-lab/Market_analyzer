@@ -115,7 +115,7 @@ pre{white-space:pre-wrap;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospa
 
 <section class='grid two section-gap'>
 <div class='card chart-sm'><div class='card-head'><div><h2>TimeGAN stress test</h2><div class='sub'>Distribution of synthetic portfolio-horizon returns</div></div><span id='stress-status' class='signal neutral'>NO DATA</span></div><canvas id='stress-chart'></canvas><div id='stress-kpis' class='kpi-grid'></div></div>
-<div class='card chart-sm'><div class='card-head'><div><h2>Paper trading</h2><div class='sub'>Paper account only — live execution remains disabled</div></div></div><div id='paper-kpis' class='kpi-grid'></div><div id='paper-positions'></div><div class='note'>Paper equity history is displayed when persisted by the account state; otherwise the panel remains a current-account snapshot.</div></div>
+<div class='card chart-sm'><div class='card-head'><div><h2>Paper trading</h2><div class='sub'>Paper account only — live execution remains disabled</div></div></div><div id='paper-kpis' class='kpi-grid'></div><div class='chart-xs'><canvas id='paper-equity-chart'></canvas></div><div id='paper-positions'></div><div class='note'>Paper equity history is displayed when persisted by the account state; otherwise the panel remains a current-account snapshot.</div></div>
 </section>
 
 <section class='card section-gap'><div class='card-head'><div><h2>Model brief</h2><div class='sub'>Generated from the existing analysis pipeline</div></div></div><pre id='brief'>No analysis loaded.</pre></section>
@@ -210,7 +210,7 @@ function renderStress(){
 }
 function renderPaper(){
  const p=state.paper||{},snap=p.snapshot||{},positions=p.positions||[];document.getElementById('paper-kpis').innerHTML=[['Equity',fmtNum(snap.equity)],['Cash',fmtNum(snap.cash)],["Today's notional",fmtNum(snap.daily_notional)]].map(x=>'<div class="kpi"><div class="label">'+x[0]+'</div><div class="value small-value">'+x[1]+'</div></div>').join('');
- document.getElementById('paper-positions').innerHTML=positions.length?positions.map(r=>'<div class="position"><b>'+esc(r.tic)+'</b><span>'+fmtNum(r.quantity,2)+' @ '+fmtNum(r.price)+'</span><b>'+fmtPct(r.actual_weight)+'</b></div>').join(''):'<div class="empty">No open paper positions</div>';
+ const history=Array.isArray(p.equity_history)?p.equity_history:[];const paperSeries=history.length?history.map(x=>Number(x.equity)):([Number(snap.equity)||0]);const paperDates=history.length?history.map(x=>String(x.timestamp||'').slice(0,10)):['current'];lineChart('paper-equity-chart',[{values:paperSeries,color:'#36d399',width:1.8}],paperDates,{decimals:0,pad:.04});\n document.getElementById('paper-positions').innerHTML=positions.length?positions.map(r=>'<div class="position"><b>'+esc(r.tic)+'</b><span>'+fmtNum(r.quantity,2)+' @ '+fmtNum(r.price)+'</span><b>'+fmtPct(r.actual_weight)+'</b></div>').join(''):'<div class="empty">No open paper positions</div>';
 }
 function renderBrief(){document.getElementById('brief').textContent=state.brief||'No analysis loaded.';document.getElementById('updated').textContent=state.updated_at?'Updated '+state.updated_at:'No analysis state loaded'}
 function render(){renderOverview();renderTicker();updateStock();renderRegime();renderAllocation();renderPerformance();renderStress();renderPaper();renderBrief()}
