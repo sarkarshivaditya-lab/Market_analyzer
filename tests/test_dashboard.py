@@ -33,3 +33,15 @@ def test_dashboard_renders_paper_account(tmp_path,monkeypatch):
     assert "Today's notional" in page
     assert "SPY" in page
     assert "5.0%" in page
+
+def test_dashboard_explains_cash_and_allocation_gate(tmp_path,monkeypatch):
+    monkeypatch.setattr(dashboard_app,"STATE_FILE",tmp_path/"dashboard_state.json")
+    set_state(portfolio=[
+        {"tic":"A","target_weight":0.0,"signal":"NEUTRAL","risk_state":"NORMAL","confidence":0.04,"portfolio_eligible":False,"allocation_reason":"LOW_CONFIDENCE"},
+        {"tic":"B","target_weight":0.35,"signal":"OVERWEIGHT","risk_state":"NORMAL","confidence":0.30,"portfolio_eligible":True,"allocation_reason":"ELIGIBLE"},
+    ])
+    page=dashboard()
+    assert "Equity exposure" in page
+    assert "Cash" in page
+    assert "LOW CONFIDENCE" in page
+    assert "ELIGIBLE" in page
