@@ -6,6 +6,7 @@ import pandas as pd
 from market_analyzer.data.market import MarketData
 from market_analyzer.data.yahoo import YahooMarketData
 from market_analyzer.data.zerodha import ZerodhaMarketData
+from market_analyzer.data.local import NSELocalMarketData
 from market_analyzer.data.macro import MacroData
 from market_analyzer.data.context import MarketContextData
 from market_analyzer.data.fundamentals import merge_fundamentals_asof
@@ -44,8 +45,12 @@ def load_market_data(symbols, start, end):
     provider=os.getenv("MARKET_ANALYZER_MARKET_DATA_PROVIDER","yahoo").strip().lower()
     if provider=="zerodha":
         return ZerodhaMarketData().fetch(start or "2015-01-01",end or pd.Timestamp.utcnow().strftime("%Y-%m-%d"),symbols)
+    if provider=="nse_local":
+        store_path=os.getenv("MARKET_ANALYZER_NSE_STORE_PATH","data/market/nse.sqlite")
+        cache_dir=os.getenv("MARKET_ANALYZER_NSE_CACHE_DIR","data/raw/nse")
+        return NSELocalMarketData(start or "2015-01-01",end or pd.Timestamp.utcnow().strftime("%Y-%m-%d"),symbols,store_path=store_path,cache_dir=cache_dir).fetch()
     if provider!="yahoo":
-        raise ValueError("MARKET_ANALYZER_MARKET_DATA_PROVIDER must be 'yahoo' or 'zerodha'")
+        raise ValueError("MARKET_ANALYZER_MARKET_DATA_PROVIDER must be 'yahoo', 'nse_local' or 'zerodha'")
     return MarketData(symbols).fetch(start,end)
 
 
