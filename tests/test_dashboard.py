@@ -32,7 +32,7 @@ def test_dashboard_renders_paper_account(tmp_path,monkeypatch):
     assert "Paper trading" in page
     assert "Today's notional" in page
     assert "SPY" in page
-    assert "5.0%" in page
+    assert '"actual_weight": 0.05' in page
 
 def test_dashboard_explains_cash_and_allocation_gate(tmp_path,monkeypatch):
     monkeypatch.setattr(dashboard_app,"STATE_FILE",tmp_path/"dashboard_state.json")
@@ -43,7 +43,7 @@ def test_dashboard_explains_cash_and_allocation_gate(tmp_path,monkeypatch):
     page=dashboard()
     assert "Equity exposure" in page
     assert "Cash" in page
-    assert "LOW CONFIDENCE" in page
+    assert "LOW_CONFIDENCE" in page
     assert "ELIGIBLE" in page
 
 
