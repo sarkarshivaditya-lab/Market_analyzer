@@ -19,12 +19,18 @@ class Broker(Protocol):
 
 class PaperBroker:
     def __init__(self, starting_cash: float = 100000.0):
-        self.cash=float(starting_cash); self.positions={}; self.orders=[]
+        self.cash=float(starting_cash); self.positions={}; self.orders=[]; self.last_prices={}
+    def mark_to_market(self, prices: dict[str,float]) -> float:
+        self.last_prices.update(prices)
+        return self.cash + sum(q*self.last_prices.get(t,0.0) for t,q in self.positions.items())
     def submit(self, order: Order) -> dict:
         if order.side not in {"BUY","SELL"} or order.quantity<=0: raise ValueError("Invalid paper order.")
         current=self.positions.get(order.ticker,0.0)
         if order.side=="SELL" and order.quantity>current: raise ValueError("Paper broker cannot short or oversell a position.")
-        self.positions[order.ticker]=current+order.quantity if order.side=="BUY" else current-order.quantity
+        if order.side=="BUY":
+            self.positions[order.ticker]=current+order.quantity
+        else:
+            self.positions[order.ticker]=current-order.quantity
         fill={"ticker":order.ticker,"side":order.side,"quantity":float(order.quantity),"status":"FILLED"}
         self.orders.append(fill); return fill
 
@@ -61,6 +67,17 @@ class ExecutionEngine:
         self.broker=broker; self.policy=policy or ExecutionPolicy(); self.daily_notional=0.0
         if self.policy.paper_only and not isinstance(broker,PaperBroker):
             raise ValueError("paper_only=True requires PaperBroker.")
+    def rebalance(self,targets: pd.DataFrame,prices: dict[str,float],current_positions: dict[str,float]|None=None) -> list[dict]:
+        positions=current_positions or {}
+        orders=[]
+        for row in targets.to_dict("records"):
+            ticker=str(row["tic"]); price=float(prices.get(ticker,0.0)); target=float(row.get("target_weight",0.0))
+            if price<=0: continue
+            target_qty=max(0.0,target*100000.0/price); delta=target_qty-float(positions.get(ticker,0.0))
+            if abs(delta*price)<1.0: continue
+            side="BUY" if delta>0 else "SELL"
+            orders.append({"ticker":ticker,"side":side,"quantity":abs(delta),"order_type":"market"})
+        return self.execute(pd.DataFrame(orders),prices) if orders else []
     def execute(self,decisions: pd.DataFrame,prices: dict[str,float]) -> list[dict]:
         results=[]
         for row in decisions.to_dict("records"):
