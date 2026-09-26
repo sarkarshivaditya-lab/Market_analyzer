@@ -15,6 +15,8 @@ from market_analyzer.models.multihorizon import MultiHorizonForecaster
 from market_analyzer.models.regime import MarketRegimeModel
 from market_analyzer.decisions.signals import build_investment_signals
 from market_analyzer.risk.optimizer import PortfolioOptimizer
+from market_analyzer.backtest.engine import signal_backtest, performance_metrics
+from market_analyzer.backtest.research import compare_strategy_to_benchmark
 from market_analyzer.reporting import build_market_brief
 from market_analyzer.training.walk_forward import split_frame, walk_forward_windows
 
@@ -43,7 +45,6 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     dates=pd.to_datetime(features["date"])
     windows=list(walk_forward_windows(dates,min_train_days=min_train_days,test_days=test_days,horizon_days=max(horizons)))
     if not windows: raise ValueError("Not enough history for the requested walk-forward configuration.")
-
     oos_parts=[]
     for window in windows:
         train,test=split_frame(features,window)
@@ -52,7 +53,6 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
         pred["window_test_start"]=window.test_start; pred["window_test_end"]=window.test_end
         oos_parts.append(pred)
     forecasts=pd.concat(oos_parts,ignore_index=True).drop_duplicates(["date","tic"])
-
     history=forecasts.merge(features,on=["date","tic"],how="left")
     history["ensemble_target"]=IntelligenceEnsemble.target(history,5)
     meta_features=IntelligenceEnsemble.feature_columns(history)
@@ -64,12 +64,8 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     calibrator_model=IntelligenceEnsemble().fit(meta_train,meta_features)
     calibration_pred=calibrator_model.predict(calibration_frame)
     calibration_frame=calibration_frame.merge(calibration_pred,on=["date","tic"],how="left")
-    calibrator=ProbabilityCalibrator().fit(
-        calibration_frame["positive_return_probability"],
-        (calibration_frame["ensemble_target"]>0).astype(int)
-    )
+    calibrator=ProbabilityCalibrator().fit(calibration_frame["positive_return_probability"],(calibration_frame["ensemble_target"]>0).astype(int))
     ensemble=IntelligenceEnsemble().fit(history,meta_features)
-
     latest_train_end=windows[-1].train_end
     train=features[dates<=latest_train_end].copy()
     base_current=MultiHorizonForecaster(horizons=horizons).fit(train,usable,train_end=latest_train_end)
@@ -93,12 +89,18 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     portfolio=PortfolioOptimizer().optimize(expected,returns)
     portfolio=portfolio.rename("target_weight").reset_index()
     portfolio=portfolio.merge(latest[["signal","risk_state"]].reset_index(),on="tic",how="left")
+    price_frame=market[["date","tic","close"]].copy()
+    backtest=signal_backtest(signals,price_frame,transaction_cost_bps=5.0,slippage_bps=2.0)
+    price_matrix=market.pivot(index="date",columns="tic",values="close").sort_index().ffill()
+    comparison=compare_strategy_to_benchmark(backtest["return"],price_matrix,benchmark="SPY")
+    backtest_summary={"strategy":performance_metrics(backtest),"benchmark":comparison["benchmark"],"transaction_cost_bps":5.0,"slippage_bps":2.0}
     brief=build_market_brief(signals,portfolio)
     from market_analyzer.dashboard.app import set_state
-    set_state(signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief)
-    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":brief,"walk_forward_windows":windows}
+    set_state(signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary)
+    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"walk_forward_windows":windows}
 
 if __name__=="__main__":
     result=run()
     print(result["brief"])
     print(result["portfolio"].to_string(index=False))
+    print(result["backtest_summary"])
