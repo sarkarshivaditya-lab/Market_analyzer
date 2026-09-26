@@ -19,6 +19,7 @@ def test_market_quality_report_accepts_clean_data():
     assert report.tickers == 2
     assert report.first_date == "2026-09-24"
     assert report.last_date == "2026-09-25"
+    assert report.price_jump_candidates == 0
 
 
 def test_market_quality_report_detects_market_data_anomalies():
@@ -43,3 +44,11 @@ def test_market_quality_report_counts_missing_sessions_per_ticker():
 def test_market_quality_requires_normalized_market_columns():
     with pytest.raises(ValueError, match="Missing market columns"):
         audit_market_data(pd.DataFrame({"date":["2026-09-24"], "tic":["INFY"]}))
+
+
+def test_market_quality_flags_large_price_discontinuities_without_marking_data_invalid():
+    frame = _frame()
+    frame.loc[1, "close"] = 3000
+    report = audit_market_data(frame)
+    assert report.valid
+    assert report.price_jump_candidates == 1
