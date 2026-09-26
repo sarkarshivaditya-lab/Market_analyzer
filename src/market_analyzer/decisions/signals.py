@@ -2,8 +2,17 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+def _merge_missing(out, extra):
+    missing=[c for c in extra.columns if c not in out.columns or c in {"date","tic"}]
+    if not missing:
+        return out
+    return out.merge(extra[["date","tic"]+[c for c in missing if c not in {"date","tic"}]],on=["date","tic"],how="left")
+
 def build_investment_signals(forecast, crash, regime, anomaly):
-    out=forecast.merge(crash,on=["date","tic"],how="left").merge(regime,on=["date","tic"],how="left").merge(anomaly,on=["date","tic"],how="left")
+    out=forecast.copy()
+    out=_merge_missing(out,crash)
+    out=_merge_missing(out,regime)
+    out=_merge_missing(out,anomaly)
     if "ensemble_expected_return" in out:
         out["expected_return"]=out["ensemble_expected_return"]
         out["confidence"]=out["ensemble_confidence"]
