@@ -214,6 +214,17 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     performance_records=performance_frame.replace({np.nan:None}).to_dict("records")
     for record in performance_records:
         record["date"]=pd.Timestamp(record["date"]).strftime("%Y-%m-%d")
+    # Persist the dashboard-ready research state before stress/paper stages so a later optional stage cannot leave the workstation stale.
+    from market_analyzer.dashboard.app import set_state
+    set_state(
+        signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),
+        portfolio=portfolio.to_dict("records"),
+        backtest=backtest_summary,
+        stress={},
+        paper={},
+        market={"symbols":list(chart_market),"default_symbol":str(portfolio.iloc[0]["tic"]) if len(portfolio) else (list(chart_market)[0] if chart_market else None),"series":chart_market,"regime":regime_rows},
+        performance={"series":performance_records},
+    )
     stress_summary=stress_summary if "stress_summary" in locals() else {}
     stress_weights=portfolio.set_index("tic")["target_weight"].reindex(returns.columns).fillna(0.0).to_numpy()
     stress_input=returns.reindex(columns=portfolio["tic"]).fillna(0.0).to_numpy()
@@ -232,7 +243,6 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
         stress_summary["distribution"]=stress_model.last_total_returns.tolist()
     brief=build_market_brief(signals,portfolio)
     from market_analyzer.execution.paper import PaperTradingSession
-    from market_analyzer.dashboard.app import set_state
     latest_prices=market.sort_values("date").groupby("tic").tail(1).set_index("tic")["close"].to_dict()
     state_file=os.getenv("MARKET_ANALYZER_PAPER_STATE_FILE","market_analyzer_paper.json")
     paper=PaperTradingSession.create(capital=100000.0,state_file=state_file)
