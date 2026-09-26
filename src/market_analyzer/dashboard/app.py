@@ -55,7 +55,8 @@ def _empty(text):
 
 @app.get("/",response_class=HTMLResponse)
 def dashboard():
-    return """<!doctype html>
+    initial_state=json.dumps(_load_state(),ensure_ascii=False).replace("</","<\\/")
+    page="""<!doctype html>
 <html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
 <title>Market Analyzer — NSE Workstation</title>
 <style>
@@ -121,6 +122,7 @@ pre{white-space:pre-wrap;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospa
 <section class='card section-gap'><div class='card-head'><div><h2>Model brief</h2><div class='sub'>Generated from the existing analysis pipeline</div></div></div><pre id='brief'>No analysis loaded.</pre></section>
 </main>
 <script>
+const initialState=__INITIAL_STATE__;
 const fmtPct=(v,d=1)=>Number.isFinite(Number(v))?(Number(v)*100).toFixed(d)+'%':'—';
 const fmtNum=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toFixed(d):'—';
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
@@ -218,4 +220,5 @@ document.querySelectorAll('.range').forEach(b=>b.onclick=()=>{document.querySele
 window.addEventListener('resize',()=>{if(state){drawPrice();renderPerformance();renderStress()}});
 fetch('/api/state').then(r=>r.json()).then(x=>{state=x;render()}).catch(()=>{state={signals:[],portfolio:[],market:{},performance:{},stress:{},paper:{},brief:'Unable to load dashboard state.'};render()});
 </script></body></html>"""
+    return page.replace("__INITIAL_STATE__",initial_state)
 
