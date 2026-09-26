@@ -73,7 +73,7 @@ def merge_fundamentals_asof(market:pd.DataFrame,snapshots:list[FundamentalSnapsh
     rows=[]
     for s in snapshots:
         row={"tic":s.ticker,"_asof":s.filed_at}; row.update({f"fund_{k}":v for k,v in s.values.items()}); rows.append(row)
-    snap=pd.DataFrame(rows).sort_values(["tic","_asof"])
+    snap=pd.DataFrame(rows).sort_values(["_asof","tic"])
     left=market.copy(); left["_asof"]=pd.to_datetime(left["date"],utc=True)
-    out=pd.merge_asof(left.sort_values(["tic","_asof"]),snap,on="_asof",by="tic",direction="backward")
+    out=pd.merge_asof(left.sort_values(["_asof","tic"]),snap,on="_asof",by="tic",direction="backward")
     return out.drop(columns="_asof").sort_values(["date","tic"]).reset_index(drop=True)
