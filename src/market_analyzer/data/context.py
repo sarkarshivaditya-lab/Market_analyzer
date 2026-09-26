@@ -3,12 +3,12 @@ from __future__ import annotations
 import pandas as pd
 from market_analyzer.data.yahoo import YahooMarketData
 
-DEFAULT_BREADTH_UNIVERSE=["SPY","QQQ","IWM","DIA","EFA","EEM","TLT","GLD","XLK","XLF","XLE","XLV","XLI","XLY","XLP","XLC","XLU","XLRE"]
+DEFAULT_BREADTH_UNIVERSE=["RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK","SBIN","ITC","LT","BHARTIARTL","AXISBANK","KOTAKBANK","HINDUNILVR","MARUTI","SUNPHARMA","ADANIENT","NTPC","POWERGRID","ONGC","TATAMOTORS","WIPRO"]
 
 class MarketContextData:
     def __init__(self,breadth_universe=None,sector_symbols=None):
         self.breadth_universe=breadth_universe or DEFAULT_BREADTH_UNIVERSE
-        self.sector_symbols=sector_symbols or ["XLK","XLF","XLE","XLV","XLI","XLY","XLP","XLC","XLU","XLRE"]
+        self.sector_symbols=sector_symbols or self.breadth_universe
     def fetch(self,start,end=None):
         end=end or pd.Timestamp.utcnow().strftime("%Y-%m-%d")
         raw=YahooMarketData(start,end,sorted(set(self.breadth_universe))).fetch()
@@ -28,9 +28,10 @@ class MarketContextData:
         out["sector_leader_return_20d"]=sr.max(axis=1)
         out["sector_laggard_return_20d"]=sr.min(axis=1)
         out["sector_dispersion_20d"]=sr.std(axis=1)
-        if "SPY" in prices:
-            out["spy_return_20d_context"]=prices["SPY"].pct_change(20)
-            out["spy_volatility_20d_context"]=r1["SPY"].rolling(20,min_periods=10).std()
+        benchmark=self.breadth_universe[0] if self.breadth_universe else None
+        if benchmark in prices:
+            out["spy_return_20d_context"]=prices[benchmark].pct_change(20)
+            out["spy_volatility_20d_context"]=r1[benchmark].rolling(20,min_periods=10).std()
         out.index.name="date"
         return out.reset_index()
     @staticmethod
