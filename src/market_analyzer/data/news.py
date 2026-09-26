@@ -59,10 +59,10 @@ def aggregate_news(items:list[NewsItem])->pd.DataFrame:
         group=group.sort_values("date").set_index("date")
         count=group["news_count"]
         weighted=group["news_sentiment"]*count
-        group["news_count_3d"]=count.rolling("3D",closed="both").sum()
-        group["news_count_7d"]=count.rolling("7D",closed="both").sum()
-        group["news_sentiment_3d"]=weighted.rolling("3D",closed="both").sum()/group["news_count_3d"].replace(0,pd.NA)
-        group["news_sentiment_7d"]=weighted.rolling("7D",closed="both").sum()/group["news_count_7d"].replace(0,pd.NA)
+        group["news_count_3d"]=count.rolling("3D",closed="right").sum()
+        group["news_count_7d"]=count.rolling("7D",closed="right").sum()
+        group["news_sentiment_3d"]=weighted.rolling("3D",closed="right").sum()/group["news_count_3d"].replace(0,pd.NA)
+        group["news_sentiment_7d"]=weighted.rolling("7D",closed="right").sum()/group["news_count_7d"].replace(0,pd.NA)
         group=group.reset_index()
         group["tic"]=tic
         pieces.append(group)
