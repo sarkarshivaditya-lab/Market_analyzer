@@ -85,3 +85,22 @@ class NSELocalMarketStore:
         query += " GROUP BY tic ORDER BY tic"
         with self._connect() as conn:
             return pd.read_sql_query(query, conn, params=params)
+
+
+class NSELocalMarketData:
+    """Populate the local store from NSE bhavcopy and serve normalized history."""
+
+    def __init__(self, start_date: str, end_date: str, tickers: list[str] | None = None,
+                 store_path: str | Path = "data/market/nse.sqlite",
+                 cache_dir: str | Path = "data/raw/nse"):
+        from market_analyzer.data.nse import NSEBhavcopyMarketData
+        self.provider = NSEBhavcopyMarketData(start_date, end_date, tickers=tickers, cache_dir=cache_dir)
+        self.store = NSELocalMarketStore(store_path)
+        self.start_date = start_date
+        self.end_date = end_date
+        self.tickers = tickers
+
+    def fetch(self) -> pd.DataFrame:
+        fetched = self.provider.fetch()
+        self.store.upsert(fetched)
+        return self.store.load(self.start_date, self.end_date, self.tickers)
