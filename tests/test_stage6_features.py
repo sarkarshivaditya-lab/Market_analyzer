@@ -38,8 +38,9 @@ def test_news_aggregation_adds_rolling_context():
     out=aggregate_news(items)
     row=out[(out["date"]=="2024-01-08")&(out["tic"]=="AAA")].iloc[0]
     assert row["news_count_3d"]==1
-    assert row["news_count_7d"]==1
-    assert row["news_sentiment_7d"]==pytest.approx(row["news_sentiment"])
+    assert row["news_count_7d"]==2
+    expected=(title_sentiment("warning loss")+title_sentiment("upgrade strong"))/2
+    assert row["news_sentiment_7d"]==pytest.approx(expected)
 
 def test_title_sentiment_is_bounded():
     assert -1.0<=title_sentiment("fraud loss warning")<=1.0
