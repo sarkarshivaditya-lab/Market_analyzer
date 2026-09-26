@@ -33,8 +33,22 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     registry.to_csv(output, index=False)
     eligible = registry[registry["eligible"]]
-    print(f"symbols={len(registry)} eligible={len(eligible)} output={output}")
-    print(eligible[["tic", "first_date", "last_date", "observations", "coverage_ratio", "median_turnover"]].to_string(index=False))
+    reasons = (
+        registry.loc[~registry["eligible"], "reason"]
+        .fillna("unknown")
+        .str.split(";")
+        .explode()
+        .value_counts()
+    )
+    print(f"symbols={len(registry)} eligible={len(eligible)} rejected={len(registry) - len(eligible)} output={output}")
+    print("=== REJECTION REASONS ===")
+    print(reasons.to_string() if not reasons.empty else "None.")
+    print("=== ELIGIBLE UNIVERSE ===")
+    print(
+        eligible[["tic", "first_date", "last_date", "observations", "coverage_ratio", "median_turnover"]]
+        .to_string(index=False)
+        if not eligible.empty else "None."
+    )
 
 if __name__ == "__main__":
     main()
