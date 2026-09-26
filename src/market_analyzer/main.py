@@ -21,7 +21,7 @@ from market_analyzer.models.stress import TimeGANStressTester
 from market_analyzer.decisions.signals import build_investment_signals, apply_portfolio_gate
 from market_analyzer.risk.optimizer import PortfolioOptimizer
 from market_analyzer.backtest.engine import signal_backtest, performance_metrics
-from market_analyzer.backtest.research import compare_strategy_to_benchmark
+from market_analyzer.backtest.research import compare_strategy_to_benchmark, rolling_forward_performance
 from market_analyzer.reporting import build_market_brief
 from market_analyzer.training.walk_forward import split_frame, walk_forward_windows
 
@@ -134,6 +134,52 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     price_matrix=price_matrix.join(benchmark_prices,how="left").ffill()
     comparison=compare_strategy_to_benchmark(backtest["return"],price_matrix,benchmark="NIFTY50")
     backtest_summary={"strategy":performance_metrics(backtest),"benchmark":comparison["benchmark"],"transaction_cost_bps":5.0,"slippage_bps":2.0}
+    # Build explicit chart-ready series from real model/data outputs. No synthetic UI values are created here.
+    chart_market={}
+    chart_source=market.copy()
+    chart_source["date"]=pd.to_datetime(chart_source["date"])
+    for tic,group in chart_source.groupby("tic"):
+        frame=group.sort_values("date").copy()
+        frame["sma20"]=frame["close"].rolling(20).mean()
+        frame["sma50"]=frame["close"].rolling(50).mean()
+        bb_mid=frame["close"].rolling(20).mean()
+        bb_std=frame["close"].rolling(20).std()
+        frame["bb_upper"]=bb_mid+2.0*bb_std
+        frame["bb_lower"]=bb_mid-2.0*bb_std
+        signal_cols=["date","tic","signal","expected_return","confidence","crash_probability","risk_state","regime_label"]
+        available=[c for c in signal_cols if c in signals.columns]
+        frame=frame.merge(signals[available],on=["date","tic"],how="left")
+        records=frame.replace({np.nan:None}).to_dict("records")
+        for record in records:
+            record["date"]=pd.Timestamp(record["date"]).strftime("%Y-%m-%d")
+        chart_market[str(tic)]=records
+    regime_rows=[]
+    regime_source=risk_frame[["date","regime_label","regime_probability"]].copy()
+    regime_source["date"]=pd.to_datetime(regime_source["date"])
+    for dt,group in regime_source.groupby("date"):
+        labels=group["regime_label"].dropna().astype(str)
+        label=labels.mode().iloc[0] if not labels.empty else "UNKNOWN"
+        probability=pd.to_numeric(group["regime_probability"],errors="coerce").mean()
+        regime_rows.append({"date":dt.strftime("%Y-%m-%d"),"label":label,"probability":None if pd.isna(probability) else float(probability)})
+    benchmark_series=benchmark_prices["NIFTY50"].pct_change().fillna(0.0)
+    benchmark_equity=(1.0+benchmark_series).cumprod()
+    strategy_equity=backtest["equity"].astype(float)
+    drawdown=strategy_equity/strategy_equity.cummax()-1.0
+    rolling=rolling_forward_performance(backtest["return"],window=63)
+    performance_frame=pd.DataFrame({
+        "date":pd.to_datetime(backtest.index),
+        "strategy_equity":strategy_equity.to_numpy(),
+        "benchmark_equity":benchmark_equity.reindex(backtest.index).ffill().fillna(1.0).to_numpy(),
+        "drawdown":drawdown.to_numpy(),
+        "rolling_sharpe":rolling["rolling_sharpe"].to_numpy(),
+        "rolling_volatility":rolling["rolling_volatility"].to_numpy(),
+        "turnover":backtest["turnover"].to_numpy(),
+        "transaction_cost":backtest["cost"].to_numpy(),
+    })
+    performance_records=performance_frame.replace({np.nan:None}).to_dict("records")
+    for record in performance_records:
+        record["date"]=pd.Timestamp(record["date"]).strftime("%Y-%m-%d")
+    stress_summary=stress_summary if "stress_summary" in locals() else {}
     stress_weights=portfolio.set_index("tic")["target_weight"].reindex(returns.columns).fillna(0.0).to_numpy()
     stress_input=returns.reindex(columns=portfolio["tic"]).fillna(0.0).to_numpy()
     if float(stress_weights.sum()) <= 0:
@@ -148,6 +194,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
         stress_model.fit(stress_input,epochs=5,batch_size=128)
         stress_report=stress_model.evaluate(paths=100,weights=stress_weights)
         stress_summary=asdict(stress_report)
+        stress_summary["distribution"]=stress_model.last_total_returns.tolist()
     brief=build_market_brief(signals,portfolio)
     from market_analyzer.execution.paper import PaperTradingSession
     from market_analyzer.dashboard.app import set_state
@@ -155,8 +202,8 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     state_file=os.getenv("MARKET_ANALYZER_PAPER_STATE_FILE","market_analyzer_paper.json")
     paper=PaperTradingSession.create(capital=100000.0,state_file=state_file)
     paper_result=paper.rebalance(portfolio[["tic","target_weight"]],latest_prices)
-    set_state(signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary,stress=stress_summary,paper=paper_result)
-    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"stress":stress_summary,"walk_forward_windows":windows}
+    set_state(signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary,stress=stress_summary,paper=paper_result,market={"symbols":list(chart_market),"default_symbol":str(portfolio.iloc[0]["tic"]) if len(portfolio) else (list(chart_market)[0] if chart_market else None),"series":chart_market,"regime":regime_rows},performance={"series":performance_records})
+    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"stress":stress_summary,"walk_forward_windows":windows,"dashboard_market":chart_market,"dashboard_performance":performance_records,"dashboard_regime":regime_rows}
 
 if __name__=="__main__":
     result=run()
