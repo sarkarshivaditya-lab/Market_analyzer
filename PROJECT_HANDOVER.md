@@ -8,7 +8,7 @@ This file is the persistent handover for the next development session. Before ch
 
 Repository: sarkarshivaditya-lab/Market_analyzer
 Default branch: main
-Latest audited commit: 2db0054751f30e82462b2866b96f653d922beb49
+Latest audited commit: f68c846e4ae025993ab30a3e78027329cdea3ed9 (NSE corporate-action reconciliation tooling)
 Latest commit message: test corporate action price discontinuity audit
 
 The repository is an AI-driven Indian-market financial intelligence and portfolio-decision platform. It currently contains market ingestion, technical/context features, multi-horizon forecasting, crash-risk classification, regime detection, anomaly scoring, a stacked ensemble, probability calibration, portfolio optimization, backtesting, TimeGAN stress testing, FastAPI dashboard, paper trading, and guarded Zerodha execution scaffolding.
@@ -206,3 +206,16 @@ These figures are historical development outputs only and must be revalidated af
 13. Only revisit broker execution after data, model, backtest, and dashboard layers are stable.
 
 The next assistant should not jump directly into parameter tuning or UI work without first completing step 1 and recording the audit findings.
+
+
+## Goal 1 audit status — 2026-09-26
+- Local NSE store audit: 4,914,061 rows across 3,796 tickers; zero duplicate rows, missing values, invalid OHLC rows, nonpositive prices, or negative-volume rows.
+- Universe screen: 3,796 symbols examined; 1,133 currently eligible under the configured history/coverage/liquidity/symbol filters.
+- Raw-price continuity remains unresolved: 2,180 close-jump candidates at the 1.5x threshold.
+- Large candidates include extreme discontinuities such as KAUSHALYA, WINSOME, DIACABS, SUMEETINDS and ARIHANT; these must be reconciled against corporate actions before expanded retraining.
+- 1,702 tickers have at least one missing expected session within their observed active span; this statistic includes the long tail and must be re-evaluated on the eligible universe.
+- NSE documentation identifies corporate-action reports containing symbol, series, ex-date and corporate-action description, and notes that Bhavcopy prices are unadjusted while certain NSE reports provide corporate-action-adjusted values.
+- Added conservative corporate-action parser/adjuster supporting unambiguous bonus and split factors only; ambiguous actions such as rights/demergers remain review-only.
+- Added scripts/reconcile_corporate_actions.py to compare jump candidates with an NSE corporate-action CSV before any automatic adjustment.
+- Added --universe and --summary-only support to the NSE audit CLI.
+- Expanded retraining is still blocked pending corporate-action reconciliation and eligible-universe continuity audit.
