@@ -72,7 +72,9 @@ def audit_market_data(frame: pd.DataFrame, expected_sessions: pd.DatetimeIndex |
         sessions = pd.DatetimeIndex(expected_sessions).normalize().sort_values().unique()
         for _, group in complete.groupby("tic", sort=False):
             observed = pd.DatetimeIndex(group["date"].dt.normalize().unique())
-            ticker_date_gaps += int(len(sessions.difference(observed)))
+            if len(observed):
+                expected = sessions[(sessions >= observed.min()) & (sessions <= observed.max())]
+                ticker_date_gaps += int(len(expected.difference(observed)))
 
     first_date = None if complete.empty else complete["date"].min().strftime("%Y-%m-%d")
     last_date = None if complete.empty else complete["date"].max().strftime("%Y-%m-%d")
