@@ -105,7 +105,7 @@ def _render_portfolio(portfolio):
     return "".join(rows)
 
 def _metric(label,value,sub=""):
-    return f"<div class='metric'><div class='metric-label'>{html.escape(label)}</div><div class='metric-value'>{html.escape(str(value))}</div><div class='metric-sub'>{html.escape(sub)}</div></div>"
+    return f"<div class='metric'><div class='metric-label'>{html.escape(label,quote=False)}</div><div class='metric-value'>{html.escape(str(value))}</div><div class='metric-sub'>{html.escape(sub)}</div></div>"
 
 def _render_backtest(backtest):
     strategy=backtest.get("strategy",{}) if isinstance(backtest,dict) else {}
