@@ -15,6 +15,7 @@ def main() -> None:
     parser.add_argument("--end", required=True)
     parser.add_argument("--tickers", nargs="*", default=None)
     parser.add_argument("--top", type=int, default=15)
+    parser.add_argument("--summary-only", action="store_true")
     args = parser.parse_args()
 
     store = NSELocalMarketStore(args.store)
@@ -50,6 +51,9 @@ def main() -> None:
         print("None.")
     else:
         print(gaps.sort_values("missing_sessions", ascending=False).head(max(args.top, 0)).to_string(index=False))
+
+    if args.summary_only:
+        return
 
     print()
     coverage = store.coverage(args.tickers)
