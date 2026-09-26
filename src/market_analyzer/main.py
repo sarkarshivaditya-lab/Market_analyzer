@@ -4,6 +4,7 @@ import os
 import pandas as pd
 from market_analyzer.data.market import MarketData
 from market_analyzer.data.yahoo import YahooMarketData
+from market_analyzer.data.zerodha import ZerodhaMarketData
 from market_analyzer.data.macro import MacroData
 from market_analyzer.data.context import MarketContextData
 from market_analyzer.data.fundamentals import merge_fundamentals_asof
@@ -38,9 +39,18 @@ FEATURES=[
 "fund_revenue_log","fund_net_income_log","fund_assets_log","fund_liabilities_log","fund_equity_log","fund_cash_log",
 "news_count","news_sentiment","news_sentiment_3d","news_sentiment_7d","news_count_3d","news_count_7d"]
 
+def load_market_data(symbols, start, end):
+    provider=os.getenv("MARKET_ANALYZER_MARKET_DATA_PROVIDER","yahoo").strip().lower()
+    if provider=="zerodha":
+        return ZerodhaMarketData().fetch(start or "2015-01-01",end or pd.Timestamp.utcnow().strftime("%Y-%m-%d"),symbols)
+    if provider!="yahoo":
+        raise ValueError("MARKET_ANALYZER_MARKET_DATA_PROVIDER must be 'yahoo' or 'zerodha'")
+    return MarketData(symbols).fetch(start,end)
+
+
 def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_days=756,test_days=21,fundamental_snapshots=None,news_items=None):
     symbols=symbols or ["RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK","SBIN"]
-    market=MarketData(symbols).fetch(start,end)
+    market=load_market_data(symbols,start,end)
     MarketData.validate(market)
     macro=MacroData().fetch(start,end)
     features=MacroData.merge_asof(market,macro)
