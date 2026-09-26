@@ -38,7 +38,7 @@ FEATURES=[
 "news_count","news_sentiment","news_sentiment_3d","news_sentiment_7d","news_count_3d","news_count_7d"]
 
 def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_days=756,test_days=21,fundamental_snapshots=None,news_items=None):
-    symbols=symbols or ["SPY","QQQ","TLT","GLD"]
+    symbols=symbols or ["RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK","SBIN"]
     market=MarketData(symbols).fetch(start,end)
     MarketData.validate(market)
     macro=MacroData().fetch(start,end)
@@ -107,8 +107,11 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     portfolio=portfolio.merge(latest[["signal","risk_state"]].reset_index(),on="tic",how="left")
     price_frame=market[["date","tic","close"]].copy()
     backtest=signal_backtest(signals,price_frame,transaction_cost_bps=5.0,slippage_bps=2.0)
+    benchmark_market=MarketData(["^NSEI"]).fetch(start,end)
+    benchmark_prices=benchmark_market.pivot(index="date",columns="tic",values="close").rename(columns={"^NSEI":"NIFTY50"})
     price_matrix=market.pivot(index="date",columns="tic",values="close").sort_index().ffill()
-    comparison=compare_strategy_to_benchmark(backtest["return"],price_matrix,benchmark="SPY")
+    price_matrix=price_matrix.join(benchmark_prices,how="left").ffill()
+    comparison=compare_strategy_to_benchmark(backtest["return"],price_matrix,benchmark="NIFTY50")
     backtest_summary={"strategy":performance_metrics(backtest),"benchmark":comparison["benchmark"],"transaction_cost_bps":5.0,"slippage_bps":2.0}
     stress_weights=portfolio.set_index("tic")["target_weight"].reindex(returns.columns).fillna(0.0).to_numpy()
     stress_input=returns.reindex(columns=portfolio["tic"]).fillna(0.0).to_numpy()
