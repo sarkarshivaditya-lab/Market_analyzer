@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 
 app=FastAPI(title="Market Analyzer",version="0.1.0")
 STATE_FILE=Path(os.getenv("MARKET_ANALYZER_STATE_FILE",Path(tempfile.gettempdir())/"market_analyzer_state.json"))
-_state={"signals":[],"portfolio":[],"brief":"No analysis loaded.","backtest":{},"stress":{},"paper":{},"updated_at":None}
+_state={"signals":[],"portfolio":[],"brief":"No analysis loaded.","backtest":{},"stress":{},"paper":{},"market":{},"performance":{},"updated_at":None}
 
 def _load_state():
     global _state
@@ -24,13 +24,15 @@ def _load_state():
         pass
     return _state
 
-def set_state(signals=None,portfolio=None,brief=None,backtest=None,stress=None,paper=None):
+def set_state(signals=None,portfolio=None,brief=None,backtest=None,stress=None,paper=None,market=None,performance=None):
     if signals is not None:_state["signals"]=signals
     if portfolio is not None:_state["portfolio"]=portfolio
     if brief is not None:_state["brief"]=brief
     if backtest is not None:_state["backtest"]=backtest
     if stress is not None:_state["stress"]=stress
     if paper is not None:_state["paper"]=paper
+    if market is not None:_state["market"]=market
+    if performance is not None:_state["performance"]=performance
     _state["updated_at"]=datetime.now(timezone.utc).isoformat()
     try:
         STATE_FILE.parent.mkdir(parents=True,exist_ok=True)
