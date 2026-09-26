@@ -1,0 +1,18 @@
+import pandas as pd
+from market_analyzer.data.context import MarketContextData
+from market_analyzer.features.context import enrich_context
+
+def test_context_merge_preserves_market_rows():
+    market=pd.DataFrame({"date":["2024-01-02","2024-01-03"],"tic":["AAA","AAA"],"close":[100.,101.]})
+    context=pd.DataFrame({"date":pd.to_datetime(["2024-01-01","2024-01-03"]),"breadth_pct_positive_1d":[.5,.75]})
+    out=MarketContextData.merge_asof(market,context)
+    assert len(out)==len(market)
+    assert out.loc[0,"breadth_pct_positive_1d"]==.5
+    assert out.loc[1,"breadth_pct_positive_1d"]==.75
+
+def test_context_features_use_past_history():
+    frame=pd.DataFrame({"date":pd.date_range("2024-01-01",periods=70,freq="D"),"tic":["AAA"]*70,"close":range(100,170),"macro_vix":[20+i*.1 for i in range(70)],"spy_return_20d_context":[.01]*70,"return_20d":[.03]*70,"volatility_20d":[.02]*70,"spy_volatility_20d_context":[.015]*70})
+    out=enrich_context(frame)
+    assert "macro_vix_chg_5d" in out and "macro_vix_z_60d" in out
+    assert "relative_return_20d_vs_spy" in out
+    assert out.iloc[10]["macro_vix_chg_5d"]>0
