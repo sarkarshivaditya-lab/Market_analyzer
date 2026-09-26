@@ -92,6 +92,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     expected=latest["ensemble_expected_return"].reindex(returns.columns).fillna(0.0)
     portfolio=PortfolioOptimizer().optimize(expected,returns)
     portfolio=portfolio.rename("target_weight").reset_index()
+    portfolio=portfolio.merge(latest[["signal","risk_state"]].reset_index(),on="tic",how="left")
     return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":build_market_brief(signals,portfolio),"walk_forward_windows":windows}
 
 if __name__=="__main__":
