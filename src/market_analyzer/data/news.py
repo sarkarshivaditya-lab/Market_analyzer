@@ -61,6 +61,6 @@ def aggregate_news(items: list[NewsItem]) -> pd.DataFrame:
         return pd.DataFrame(columns=["date", "tic", "news_count", "news_sentiment"])
     rows = [{"date": x.published_at.normalize(), "tic": x.ticker, "sentiment": x.sentiment} for x in items]
     frame = pd.DataFrame(rows)
-    return frame.groupby(["date", "tic"], as_index=False).agg(
-        news_count=("sentiment", "size"), news_sentiment=("sentiment", "mean")
-    )
+    out=frame.groupby(["date","tic"],as_index=False).agg(news_count=("sentiment","size"),news_sentiment=("sentiment","mean"))
+    out["date"]=pd.to_datetime(out["date"]).dt.strftime("%Y-%m-%d")
+    return out
