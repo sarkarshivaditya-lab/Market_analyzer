@@ -147,7 +147,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
         bb_std=frame["close"].rolling(20).std()
         frame["bb_upper"]=bb_mid+2.0*bb_std
         frame["bb_lower"]=bb_mid-2.0*bb_std
-        signal_cols=["date","tic","signal","expected_return","confidence","crash_probability","risk_state","regime_label"]
+        signal_cols=["date","tic","signal","expected_return","confidence","crash_probability","risk_state","regime_label","anomaly_score"]
         available=[c for c in signal_cols if c in signals.columns]
         frame=frame.merge(signals[available],on=["date","tic"],how="left")
         records=frame.replace({np.nan:None}).to_dict("records")
