@@ -218,7 +218,7 @@ function renderBrief(){document.getElementById('brief').textContent=state.brief|
 function render(){renderOverview();renderTicker();updateStock();renderRegime();renderAllocation();renderPerformance();renderStress();renderPaper();renderBrief()}
 document.querySelectorAll('.range').forEach(b=>b.onclick=()=>{document.querySelectorAll('.range').forEach(x=>x.classList.remove('active'));b.classList.add('active');currentRange=Number(b.dataset.range);drawPrice()});
 window.addEventListener('resize',()=>{if(state){drawPrice();renderPerformance();renderStress()}});
-fetch('/api/state').then(r=>r.json()).then(x=>{state=x;render()}).catch(()=>{state={signals:[],portfolio:[],market:{},performance:{},stress:{},paper:{},brief:'Unable to load dashboard state.'};render()});
+fetch('/api/state').then(r=>r.json()).then(x=>{state=x;render()}).catch(()=>{state=initialState;render()});
 </script></body></html>"""
     return page.replace("__INITIAL_STATE__",initial_state)
 
