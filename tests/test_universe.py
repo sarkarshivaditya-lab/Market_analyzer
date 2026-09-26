@@ -23,7 +23,7 @@ def test_registry_applies_history_coverage_liquidity_and_symbol_screen():
     registry = build_universe_registry(frame, sessions, config).set_index("tic")
     assert bool(registry.loc["GOOD", "eligible"])
     assert not bool(registry.loc["NEWCO", "eligible"])
-    assert "insufficient_coverage" in registry.loc["NEWCO", "reason"]
+    assert "insufficient_history" in registry.loc["NEWCO", "reason"]
     assert not bool(registry.loc["NIFTYETF", "eligible"])
     assert registry.loc["NIFTYETF", "instrument_class"] == "screened_non_equity"
 
