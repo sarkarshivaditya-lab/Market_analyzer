@@ -134,7 +134,7 @@ class ExecutionPolicy:
     max_order_notional: float=5000.0
     max_daily_notional: float=20000.0
     require_positive_expected_return: bool=True
-    min_confidence: float=.60
+    min_confidence: float=.05
 
 class ExecutionEngine:
     def __init__(self,broker: Broker,policy: ExecutionPolicy|None=None,capital: float = 100000.0):
