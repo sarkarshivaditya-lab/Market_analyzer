@@ -3,6 +3,7 @@ from dataclasses import asdict
 import os
 import pandas as pd
 from market_analyzer.data.market import MarketData
+from market_analyzer.data.yahoo import YahooMarketData
 from market_analyzer.data.macro import MacroData
 from market_analyzer.data.context import MarketContextData
 from market_analyzer.data.fundamentals import merge_fundamentals_asof
