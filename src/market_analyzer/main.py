@@ -43,7 +43,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     MarketData.validate(market)
     macro=MacroData().fetch(start,end)
     features=MacroData.merge_asof(market,macro)
-    context=MarketContextData().fetch(start,end)
+    context=MarketContextData(breadth_universe=symbols,sector_symbols=symbols).fetch(start,end)
     features=MarketContextData.merge_asof(features,context)
     features=enrich_context(features)
     if fundamental_snapshots:
@@ -107,7 +107,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     portfolio=portfolio.merge(latest[["signal","risk_state"]].reset_index(),on="tic",how="left")
     price_frame=market[["date","tic","close"]].copy()
     backtest=signal_backtest(signals,price_frame,transaction_cost_bps=5.0,slippage_bps=2.0)
-    benchmark_market=MarketData(["^NSEI"]).fetch(start,end)
+    benchmark_market=YahooMarketData(start,end,["^NSEI"]).fetch()
     benchmark_prices=benchmark_market.pivot(index="date",columns="tic",values="close").rename(columns={"^NSEI":"NIFTY50"})
     price_matrix=market.pivot(index="date",columns="tic",values="close").sort_index().ffill()
     price_matrix=price_matrix.join(benchmark_prices,how="left").ffill()
