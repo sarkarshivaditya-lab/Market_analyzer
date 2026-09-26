@@ -25,4 +25,4 @@ class PaperTradingSession:
             position_rows.append({"tic":ticker,"quantity":quantity,"price":price,"market_value":quantity*price})
         for row in position_rows:
             row["actual_weight"]=row["market_value"]/equity if equity else 0.0
-        return {"orders":orders,"snapshot":snapshot,"equity":equity,"positions":position_rows}
+        return {"orders":orders,"snapshot":snapshot,"equity":equity,"positions":position_rows,"equity_history":list(self.broker.equity_history)}
