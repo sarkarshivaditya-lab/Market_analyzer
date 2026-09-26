@@ -1,0 +1,10 @@
+# Local development
+.vscode/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Local paper-trading state
+market_analyzer_paper.json
