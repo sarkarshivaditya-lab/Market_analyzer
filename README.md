@@ -36,7 +36,7 @@ Market data + macro context + point-in-time fundamentals/news
 - Timestamped RSS news ingestion with 3-day and 7-day rolling coverage and sentiment context.
 - FastAPI dashboard and JSON state endpoint.
 - Paper broker, rebalancing engine, and guarded Zerodha/Alpaca adapters.
-- Explicit paper-only default, order-notional limits, daily-notional limits, confidence gates, and positive-expected-return gates.
+- Explicit paper-only default, order-notional limits, daily-notional limits, confidence gates, positive-expected-return gates, and a separate environment confirmation for live execution.
 
 ## Validation principles
 
@@ -63,7 +63,7 @@ Start the dashboard with:
 
     uvicorn market_analyzer.dashboard.app:app --host 0.0.0.0 --port 8000
 
-The default execution policy is paper-only. Live broker adapters are isolated behind the ExecutionPolicy(paper_only=False) gate and should only be enabled after independent operational, regulatory, and risk review.
+The default execution policy is paper-only. Live broker adapters require both ExecutionPolicy(paper_only=False) and MARKET_ANALYZER_LIVE_TRADING=CONFIRMED. They should only be enabled after independent operational, regulatory, and risk review.
 
 ## Data provenance
 
