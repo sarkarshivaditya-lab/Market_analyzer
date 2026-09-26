@@ -9,6 +9,7 @@ def test_dashboard_health_and_state():
     assert payload["portfolio"][0]["target_weight"]==1.0
 
 def test_dashboard_page_loads():
-    response=dashboard()
-    assert response.status_code==200
-    assert "Market Analyzer" in response.body.decode()
+    page=dashboard()
+    assert isinstance(page,str)
+    assert "Market Analyzer" in page
+    assert "/api/state" in page
