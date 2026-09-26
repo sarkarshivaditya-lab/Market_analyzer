@@ -23,3 +23,13 @@ def test_dashboard_page_loads():
     assert "Target portfolio" in page
     assert "Market signals" in page
     assert "Expected" in page
+
+
+def test_dashboard_renders_paper_account(tmp_path,monkeypatch):
+    monkeypatch.setattr(dashboard_app,"STATE_FILE",tmp_path/"dashboard_state.json")
+    set_state(paper={"snapshot":{"equity":100000,"cash":95000,"daily_notional":5000},"positions":[{"tic":"SPY","quantity":25,"price":200,"actual_weight":0.05}]})
+    page=dashboard()
+    assert "Paper trading" in page
+    assert "Today's notional" in page
+    assert "SPY" in page
+    assert "5.0%" in page
