@@ -1,101 +1,109 @@
-"""Modern PyTorch TimeGAN implementation based on the upstream 2019 architecture."""
+"""PyTorch implementation of the core TimeGAN architecture and training phases.
+
+The architecture follows the original Embedder/Recovery/Generator/Supervisor/Discriminator
+design while using modern PyTorch primitives instead of the original TensorFlow 1.x stack.
+"""
 from __future__ import annotations
-
 from dataclasses import dataclass
-
 import torch
 from torch import nn
 
-
 @dataclass
 class TimeGANConfig:
-    feature_dim: int
-    hidden_dim: int = 64
-    num_layers: int = 2
-    latent_dim: int | None = None
-    dropout: float = 0.0
-
-    def __post_init__(self) -> None:
-        if self.latent_dim is None:
-            self.latent_dim = self.feature_dim
-
+    feature_dim:int
+    hidden_dim:int=64
+    num_layers:int=2
+    latent_dim:int|None=None
+    dropout:float=0.0
+    def __post_init__(self):
+        if self.latent_dim is None:self.latent_dim=self.feature_dim
 
 class RNNStack(nn.Module):
-    def __init__(self, input_dim: int, hidden_dim: int, num_layers: int, dropout: float):
+    def __init__(self,input_dim,hidden_dim,num_layers,dropout):
         super().__init__()
-        self.rnn = nn.GRU(
-            input_dim,
-            hidden_dim,
-            num_layers=num_layers,
-            batch_first=True,
-            dropout=dropout if num_layers > 1 else 0.0,
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.rnn(x)[0]
-
+        self.rnn=nn.GRU(input_dim,hidden_dim,num_layers=num_layers,batch_first=True,dropout=dropout if num_layers>1 else 0.0)
+    def forward(self,x): return self.rnn(x)[0]
 
 class TimeGAN(nn.Module):
-    """Embedder + recovery + generator + supervisor + discriminator."""
-
-    def __init__(self, config: TimeGANConfig):
+    def __init__(self,config:TimeGANConfig):
         super().__init__()
-        h = config.hidden_dim
-        z = int(config.latent_dim)
-        d = config.feature_dim
-        self.hidden_dim = h
-        self.latent_dim = z
-        self.embedder = RNNStack(d, h, config.num_layers, config.dropout)
-        self.recovery = nn.Sequential(nn.Linear(h, h), nn.Sigmoid(), nn.Linear(h, d))
-        self.generator = RNNStack(z, h, config.num_layers, config.dropout)
-        self.supervisor = RNNStack(h, h, max(1, config.num_layers - 1), config.dropout)
-        self.discriminator = nn.Sequential(nn.Linear(h, h), nn.LeakyReLU(0.2), nn.Linear(h, 1))
+        h=config.hidden_dim; z=int(config.latent_dim); d=config.feature_dim
+        self.embedder=RNNStack(d,h,config.num_layers,config.dropout)
+        self.recovery=nn.Sequential(nn.Linear(h,h),nn.Sigmoid(),nn.Linear(h,d))
+        self.generator=RNNStack(z,h,config.num_layers,config.dropout)
+        self.supervisor=RNNStack(h,h,max(1,config.num_layers-1),config.dropout)
+        self.discriminator=nn.Sequential(nn.Linear(h,h),nn.LeakyReLU(0.2),nn.Linear(h,1))
+    def embed(self,x): return self.embedder(x)
+    def recover(self,h): return self.recovery(h)
+    def generate_latent(self,z): return self.supervisor(self.generator(z))
+    def generate(self,z): return self.recover(self.generate_latent(z))
+    def discriminate(self,h): return self.discriminator(h[:,-1,:]).squeeze(-1)
 
-    def embed(self, x: torch.Tensor) -> torch.Tensor:
-        return self.embedder(x)
+def reconstruction_loss(x,x_tilde): return nn.functional.mse_loss(x_tilde,x)
 
-    def recover(self, h: torch.Tensor) -> torch.Tensor:
-        return self.recovery(h)
+def supervised_loss(h,h_supervised):
+    if h.size(1)<2:return h.new_tensor(0.0)
+    return nn.functional.mse_loss(h[:,1:,:],h_supervised[:,:-1,:])
 
-    def generate(self, z: torch.Tensor) -> torch.Tensor:
-        e_hat = self.generator(z)
-        h_hat = self.supervisor(e_hat)
-        return self.recover(h_hat)
+def moment_loss(x,x_hat):
+    return torch.abs(x.mean((0,1))-x_hat.mean((0,1))).mean()+torch.abs(x.std((0,1))-x_hat.std((0,1))).mean()
 
-    def discriminate(self, h: torch.Tensor) -> torch.Tensor:
-        return self.discriminator(h[:, -1, :]).squeeze(-1)
+def adversarial_loss(logits,real):
+    target=torch.ones_like(logits) if real else torch.zeros_like(logits)
+    return nn.functional.binary_cross_entropy_with_logits(logits,target)
 
-    def forward(self, x: torch.Tensor, z: torch.Tensor) -> dict[str, torch.Tensor]:
-        h = self.embed(x)
-        x_tilde = self.recover(h)
-        x_hat = self.generate(z)
-        h_hat = self.generator(z)
-        h_supervised = self.supervisor(h)
-        return {
-            "h": h,
-            "x_tilde": x_tilde,
-            "x_hat": x_hat,
-            "h_hat": h_hat,
-            "h_supervised": h_supervised,
-        }
+class TimeGANTrainer:
+    def __init__(self,model:TimeGAN,lr=1e-3,device=None):
+        self.model=model
+        self.device=device or ("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+        self.model.to(self.device)
+        self.opt_embed=torch.optim.Adam(list(model.embedder.parameters())+list(model.recovery.parameters()),lr=lr)
+        self.opt_gen=torch.optim.Adam(list(model.generator.parameters())+list(model.supervisor.parameters()),lr=lr)
+        self.opt_disc=torch.optim.Adam(model.discriminator.parameters(),lr=lr)
 
+    def _noise(self,batch,steps):
+        return torch.rand(batch,steps,self.model.generator.rnn.input_size,device=self.device)
 
-def reconstruction_loss(x: torch.Tensor, x_tilde: torch.Tensor) -> torch.Tensor:
-    return nn.functional.mse_loss(x_tilde, x)
+    def reconstruction_step(self,x):
+        x=x.to(self.device)
+        h=self.model.embed(x); recon=self.model.recover(h)
+        loss=reconstruction_loss(x,recon)
+        self.opt_embed.zero_grad();loss.backward();self.opt_embed.step()
+        return float(loss.detach().cpu())
 
+    def generator_step(self,x):
+        x=x.to(self.device);h=self.model.embed(x).detach()
+        z=self._noise(x.size(0),x.size(1));fake_h=self.model.generate_latent(z);fake_x=self.model.recover(fake_h)
+        sup=supervised_loss(h,self.model.supervisor(h))
+        adv=adversarial_loss(self.model.discriminate(fake_h),True)
+        loss=adv+100.0*sup+100.0*moment_loss(x,fake_x)
+        self.opt_gen.zero_grad();loss.backward();self.opt_gen.step()
+        return float(loss.detach().cpu())
 
-def supervised_loss(h: torch.Tensor, h_supervised: torch.Tensor) -> torch.Tensor:
-    if h.size(1) < 2:
-        return h.new_tensor(0.0)
-    return nn.functional.mse_loss(h[:, 1:, :], h_supervised[:, :-1, :])
+    def discriminator_step(self,x):
+        x=x.to(self.device);z=self._noise(x.size(0),x.size(1))
+        with torch.no_grad(): real_h=self.model.embed(x);fake_h=self.model.generate_latent(z)
+        real_loss=adversarial_loss(self.model.discriminate(real_h),True)
+        fake_loss=adversarial_loss(self.model.discriminate(fake_h),False)
+        loss=real_loss+fake_loss
+        self.opt_disc.zero_grad();loss.backward();self.opt_disc.step()
+        return float(loss.detach().cpu())
 
+    def fit(self,loader,epochs=10):
+        history=[]
+        for _ in range(epochs):
+            losses={"reconstruction":0.0,"generator":0.0,"discriminator":0.0,"batches":0}
+            for batch in loader:
+                x=batch[0] if isinstance(batch,(tuple,list)) else batch
+                losses["reconstruction"]+=self.reconstruction_step(x)
+                losses["generator"]+=self.generator_step(x)
+                losses["discriminator"]+=self.discriminator_step(x)
+                losses["batches"]+=1
+            n=max(losses.pop("batches"),1)
+            history.append({k:v/n for k,v in losses.items()})
+        return history
 
-def moment_loss(x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
-    mean_loss = torch.abs(x.mean(dim=(0, 1)) - x_hat.mean(dim=(0, 1))).mean()
-    std_loss = torch.abs(x.std(dim=(0, 1)) - x_hat.std(dim=(0, 1))).mean()
-    return mean_loss + std_loss
-
-
-def adversarial_loss(logits: torch.Tensor, real: bool) -> torch.Tensor:
-    targets = torch.ones_like(logits) if real else torch.zeros_like(logits)
-    return nn.functional.binary_cross_entropy_with_logits(logits, targets)
+    @torch.no_grad()
+    def sample(self,num_samples,seq_len):
+        z=self._noise(num_samples,seq_len)
+        return self.model.generate(z).detach().cpu()
