@@ -19,7 +19,7 @@ def _frame():
 
 def test_registry_applies_history_coverage_liquidity_and_symbol_screen():
     frame, sessions = _frame()
-    config = UniverseConfig(min_history_sessions=5, min_coverage_ratio=0.8, min_median_turnover=10_000_000)
+    config = UniverseConfig(min_history_sessions=6, min_coverage_ratio=0.8, min_median_turnover=10_000_000)
     registry = build_universe_registry(frame, sessions, config).set_index("tic")
     assert bool(registry.loc["GOOD", "eligible"])
     assert not bool(registry.loc["NEWCO", "eligible"])
@@ -29,7 +29,7 @@ def test_registry_applies_history_coverage_liquidity_and_symbol_screen():
 
 def test_point_in_time_universe_does_not_use_future_rows():
     frame, sessions = _frame()
-    config = UniverseConfig(min_history_sessions=5, min_coverage_ratio=0.8, min_median_turnover=10_000_000)
+    config = UniverseConfig(min_history_sessions=6, min_coverage_ratio=0.8, min_median_turnover=10_000_000)
     assert "NEWCO" not in eligible_tickers_on(frame, "2024-01-10", sessions, config)
     assert eligible_tickers_on(frame, "2024-01-10", sessions, config) == ["GOOD"]
 
