@@ -1,8 +1,8 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Protocol
 import os
+import numpy as np
 import requests
 import pandas as pd
 
@@ -20,14 +20,17 @@ class FundamentalProvider(Protocol):
 class CsvFundamentalProvider:
     def __init__(self,path:str): self.path=path
     def fetch(self,tickers:list[str],as_of:pd.Timestamp)->list[FundamentalSnapshot]:
-        frame=pd.read_csv(self.path); required={"ticker","effective_at","filed_at","source"}
+        frame=pd.read_csv(self.path)
+        required={"ticker","effective_at","filed_at","source"}
         missing=required-set(frame.columns)
         if missing: raise ValueError(f"Missing fundamental columns: {sorted(missing)}")
-        frame["effective_at"]=pd.to_datetime(frame["effective_at"],utc=True); frame["filed_at"]=pd.to_datetime(frame["filed_at"],utc=True)
+        frame["effective_at"]=pd.to_datetime(frame["effective_at"],utc=True)
+        frame["filed_at"]=pd.to_datetime(frame["filed_at"],utc=True)
         cutoff=pd.Timestamp(as_of)
         cutoff=cutoff.tz_localize("UTC") if cutoff.tzinfo is None else cutoff.tz_convert("UTC")
         frame=frame[(frame["ticker"].isin(tickers))&(frame["filed_at"]<=cutoff)]
-        metrics=[c for c in frame.columns if c not in required]; out=[]
+        metrics=[c for c in frame.columns if c not in required]
+        out=[]
         for _,row in frame.sort_values("filed_at").iterrows():
             out.append(FundamentalSnapshot(str(row["ticker"]),row["effective_at"],row["filed_at"],str(row["source"]),{c:float(row[c]) for c in metrics if pd.notna(row[c])}))
         return out
@@ -38,22 +41,27 @@ class SecCompanyFactsProvider:
     def __init__(self,user_agent:str|None=None):
         self.user_agent=user_agent or os.getenv("SEC_USER_AGENT")
         if not self.user_agent: raise ValueError("SEC_USER_AGENT must identify the application and contact.")
-        self.session=requests.Session(); self.session.headers.update({"User-Agent":self.user_agent,"Accept-Encoding":"gzip, deflate"})
+        self.session=requests.Session()
+        self.session.headers.update({"User-Agent":self.user_agent,"Accept-Encoding":"gzip, deflate"})
         self._tickers=None
     def _ticker_map(self):
         if self._tickers is None:
-            data=self.session.get("https://www.sec.gov/files/company_tickers.json",timeout=20).json()
+            response=self.session.get("https://www.sec.gov/files/company_tickers.json",timeout=20)
+            response.raise_for_status()
+            data=response.json()
             self._tickers={str(v["ticker"]).upper():str(v["cik_str"]).zfill(10) for v in data.values()}
         return self._tickers
     def fetch(self,tickers:list[str],as_of:pd.Timestamp)->list[FundamentalSnapshot]:
-        cutoff=pd.Timestamp(as_of); cutoff=cutoff.tz_localize("UTC") if cutoff.tzinfo is None else cutoff.tz_convert("UTC")
+        cutoff=pd.Timestamp(as_of)
+        cutoff=cutoff.tz_localize("UTC") if cutoff.tzinfo is None else cutoff.tz_convert("UTC")
         out=[]
         for ticker in tickers:
             cik=self._ticker_map().get(ticker.upper())
             if not cik: continue
-            facts=self.session.get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json",timeout=30).json().get("facts",{}).get("us-gaap",{})
-            chosen={}
-            filed_at=None; effective=None
+            response=self.session.get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json",timeout=30)
+            response.raise_for_status()
+            facts=response.json().get("facts",{}).get("us-gaap",{})
+            chosen={}; filed_at=None; effective=None
             for name,tag in self.TAGS.items():
                 concept=facts.get(tag)
                 if not concept: continue
@@ -62,18 +70,49 @@ class SecCompanyFactsProvider:
                 candidates=[x for x in unit if x.get("filed") and pd.Timestamp(x["filed"],tz="UTC")<=cutoff and x.get("form") in {"10-K","10-Q"} and "end" in x]
                 if not candidates: continue
                 item=max(candidates,key=lambda x:(x["filed"],x["end"]))
-                chosen[name]=float(item["val"]); filed_at=max(filed_at,pd.Timestamp(item["filed"],tz="UTC")) if filed_at is not None else pd.Timestamp(item["filed"],tz="UTC")
+                chosen[name]=float(item["val"])
+                filed_at=max(filed_at,pd.Timestamp(item["filed"],tz="UTC")) if filed_at is not None else pd.Timestamp(item["filed"],tz="UTC")
                 effective=max(effective,pd.Timestamp(item["end"],tz="UTC")) if effective is not None else pd.Timestamp(item["end"],tz="UTC")
             if chosen and filed_at is not None:
-                out.append(FundamentalSnapshot(ticker, effective or filed_at, filed_at, "SEC XBRL", chosen))
+                out.append(FundamentalSnapshot(ticker,effective or filed_at,filed_at,"SEC XBRL",chosen))
         return out
+
+def _safe_ratio(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
+    num=pd.to_numeric(numerator,errors="coerce")
+    den=pd.to_numeric(denominator,errors="coerce").replace(0,np.nan)
+    return num/den
+
+def enrich_fundamentals(frame:pd.DataFrame) -> pd.DataFrame:
+    """Add scale-normalized quality, growth, and capital-structure features."""
+    out=frame.copy().sort_values(["tic","date"]).reset_index(drop=True)
+    if "fund_revenue" in out:
+        g=out.groupby("tic",group_keys=False)
+        revenue=pd.to_numeric(out["fund_revenue"],errors="coerce")
+        net_income=pd.to_numeric(out.get("fund_net_income",np.nan),errors="coerce")
+        assets=pd.to_numeric(out.get("fund_assets",np.nan),errors="coerce")
+        liabilities=pd.to_numeric(out.get("fund_liabilities",np.nan),errors="coerce")
+        equity=pd.to_numeric(out.get("fund_equity",np.nan),errors="coerce")
+        cash=pd.to_numeric(out.get("fund_cash",np.nan),errors="coerce")
+        out["fund_revenue_growth"]=g["fund_revenue"].pct_change()
+        if "fund_net_income" in out:
+            out["fund_net_income_growth"]=g["fund_net_income"].pct_change()
+        out["fund_profit_margin"]=_safe_ratio(net_income,revenue)
+        out["fund_debt_to_assets"]=_safe_ratio(liabilities,assets)
+        out["fund_equity_ratio"]=_safe_ratio(equity,assets)
+        out["fund_cash_to_assets"]=_safe_ratio(cash,assets)
+        for name,series in {"revenue":revenue,"net_income":net_income,"assets":assets,"liabilities":liabilities,"equity":equity,"cash":cash}.items():
+            out[f"fund_{name}_log"]=np.sign(series)*np.log1p(np.abs(series))
+    return out
 
 def merge_fundamentals_asof(market:pd.DataFrame,snapshots:list[FundamentalSnapshot])->pd.DataFrame:
     if not snapshots:return market.copy()
     rows=[]
     for s in snapshots:
-        row={"tic":s.ticker,"_asof":s.filed_at}; row.update({f"fund_{k}":v for k,v in s.values.items()}); rows.append(row)
+        row={"tic":s.ticker,"_asof":s.filed_at}
+        row.update({f"fund_{k}":v for k,v in s.values.items()})
+        rows.append(row)
     snap=pd.DataFrame(rows).sort_values(["_asof","tic"])
     left=market.copy(); left["_asof"]=pd.to_datetime(left["date"],utc=True)
     out=pd.merge_asof(left.sort_values(["_asof","tic"]),snap,on="_asof",by="tic",direction="backward")
-    return out.drop(columns="_asof").sort_values(["date","tic"]).reset_index(drop=True)
+    out=out.drop(columns="_asof").sort_values(["date","tic"]).reset_index(drop=True)
+    return enrich_fundamentals(out)
