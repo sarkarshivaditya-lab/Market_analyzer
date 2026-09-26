@@ -29,3 +29,27 @@ def test_nse_local_store_reports_coverage(tmp_path):
     assert coverage.to_dict("records") == [{
         "tic":"RELIANCE","first_date":"2026-09-25","last_date":"2026-09-25","rows":1
     }]
+
+
+def test_nse_local_provider_populates_store(tmp_path, monkeypatch):
+    from market_analyzer.data.local import NSELocalMarketData
+
+    payload = pd.DataFrame([{
+        "date":"2026-09-25","tic":"INFY","open":1500,"high":1520,
+        "low":1490,"close":1510,"volume":100000
+    }])
+
+    class FakeProvider:
+        def __init__(self, *args, **kwargs):
+            pass
+        def fetch(self):
+            return payload
+
+    monkeypatch.setattr("market_analyzer.data.nse.NSEBhavcopyMarketData", FakeProvider)
+    provider = NSELocalMarketData(
+        "2026-09-25","2026-09-26",["INFY"],
+        store_path=tmp_path / "nse.sqlite",
+    )
+    out = provider.fetch()
+    assert len(out) == 1
+    assert out.iloc[0]["tic"] == "INFY"
