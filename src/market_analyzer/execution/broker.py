@@ -37,6 +37,7 @@ class PaperBroker:
         self.last_prices: dict[str,float]={}
         self.daily_notional=0.0
         self.daily_date=datetime.now(timezone.utc).date().isoformat()
+        self.equity_history: list[dict] = []
         if self.state_file and self.state_file.exists():
             self._load()
         elif self.state_file:
@@ -53,7 +54,7 @@ class PaperBroker:
         if not self.state_file:
             return
         self.state_file.parent.mkdir(parents=True,exist_ok=True)
-        payload={"cash":self.cash,"positions":self.positions,"orders":self.orders,"last_prices":self.last_prices,"daily_notional":self.daily_notional,"daily_date":self.daily_date}
+        payload={"cash":self.cash,"positions":self.positions,"orders":self.orders,"last_prices":self.last_prices,"daily_notional":self.daily_notional,"daily_date":self.daily_date,"equity_history":self.equity_history}
         tmp=self.state_file.with_suffix(self.state_file.suffix+".tmp")
         tmp.write_text(json.dumps(payload,indent=2),encoding="utf-8")
         tmp.replace(self.state_file)
@@ -66,11 +67,15 @@ class PaperBroker:
         self.last_prices={str(k):float(v) for k,v in payload.get("last_prices",{}).items()}
         self.daily_notional=float(payload.get("daily_notional",0.0))
         self.daily_date=str(payload.get("daily_date",datetime.now(timezone.utc).date().isoformat()))
+        self.equity_history=list(payload.get("equity_history",[]))
         self._roll_daily_notional()
 
     def mark_to_market(self, prices: dict[str,float]) -> float:
         self.last_prices.update({str(k):float(v) for k,v in prices.items() if float(v)>0})
         value=self.cash+sum(q*self.last_prices.get(t,0.0) for t,q in self.positions.items())
+        stamp=_utc_now()
+        if not self.equity_history or self.equity_history[-1].get("equity") != value:
+            self.equity_history.append({"timestamp":stamp,"equity":value,"cash":self.cash})
         self._save()
         return value
 
