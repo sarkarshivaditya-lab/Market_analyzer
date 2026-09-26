@@ -6,7 +6,8 @@ import pandas as pd
 from market_analyzer.data.market import MarketData
 from market_analyzer.data.yahoo import YahooMarketData
 from market_analyzer.data.zerodha import ZerodhaMarketData
-from market_analyzer.data.local import NSELocalMarketData
+from market_analyzer.data.local import NSELocalMarketData, NSELocalMarketStore
+from market_analyzer.data.universe import UniverseConfig, eligible_tickers_on
 from market_analyzer.data.macro import MacroData
 from market_analyzer.data.context import MarketContextData
 from market_analyzer.data.fundamentals import merge_fundamentals_asof
@@ -54,8 +55,34 @@ def load_market_data(symbols, start, end):
     return MarketData(symbols).fetch(start,end)
 
 
+def _resolve_symbols(symbols, start, end):
+    if symbols:
+        return symbols
+    mode=os.getenv("MARKET_ANALYZER_UNIVERSE","default").strip().lower()
+    if mode != "registry":
+        return ["RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK","SBIN"]
+    if os.getenv("MARKET_ANALYZER_MARKET_DATA_PROVIDER","yahoo").strip().lower() != "nse_local":
+        raise ValueError("MARKET_ANALYZER_UNIVERSE=registry requires MARKET_ANALYZER_MARKET_DATA_PROVIDER=nse_local")
+    store_path=os.getenv("MARKET_ANALYZER_NSE_STORE_PATH","data/market/nse.sqlite")
+    store=NSELocalMarketStore(store_path)
+    effective_end=end or pd.Timestamp.utcnow().strftime("%Y-%m-%d")
+    frame=store.load(start or "2015-01-01",effective_end)
+    if frame.empty:
+        raise ValueError("NSE local store has no data for the requested universe window.")
+    sessions=pd.DatetimeIndex(frame["date"].unique()).sort_values()
+    config=UniverseConfig(
+        min_history_sessions=int(os.getenv("MARKET_ANALYZER_MIN_HISTORY_SESSIONS","756")),
+        min_coverage_ratio=float(os.getenv("MARKET_ANALYZER_MIN_COVERAGE_RATIO","0.70")),
+        min_median_turnover=float(os.getenv("MARKET_ANALYZER_MIN_MEDIAN_TURNOVER","10000000")),
+    )
+    selected=eligible_tickers_on(frame,effective_end,sessions,config)
+    if not selected:
+        raise ValueError("NSE universe registry produced no eligible symbols.")
+    return selected
+
+
 def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_days=756,test_days=21,fundamental_snapshots=None,news_items=None):
-    symbols=symbols or ["RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK","SBIN"]
+    symbols=_resolve_symbols(symbols,start,end)
     market=load_market_data(symbols,start,end)
     MarketData.validate(market)
     macro=MacroData().fetch(start,end)
