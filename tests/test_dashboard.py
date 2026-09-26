@@ -1,15 +1,16 @@
 import market_analyzer.dashboard.app as dashboard_app
 from market_analyzer.dashboard.app import dashboard, health, set_state, state
 
-def test_dashboard_health_and_state(tmp_path, monkeypatch):
+def test_dashboard_health_and_state(tmp_path,monkeypatch):
     monkeypatch.setattr(dashboard_app,"STATE_FILE",tmp_path/"dashboard_state.json")
-    set_state(signals=[{"tic":"SPY"}],portfolio=[{"tic":"SPY","target_weight":1.0}],brief="ready",backtest={"strategy":{"cagr":0.1}})
+    set_state(signals=[{"tic":"SPY"}],portfolio=[{"tic":"SPY","target_weight":1.0}],brief="ready",backtest={"strategy":{"cagr":0.1}},stress={"p01_return":-0.2})
     assert health()["status"]=="ok"
     payload=state()
     assert payload["brief"]=="ready"
     assert payload["signals"][0]["tic"]=="SPY"
     assert payload["portfolio"][0]["target_weight"]==1.0
     assert payload["backtest"]["strategy"]["cagr"]==0.1
+    assert payload["stress"]["p01_return"]==-0.2
 
 def test_dashboard_page_loads():
     page=dashboard()
@@ -17,3 +18,4 @@ def test_dashboard_page_loads():
     assert "Market Analyzer" in page
     assert "/api/state" in page
     assert "Backtest" in page
+    assert "TimeGAN stress test" in page
