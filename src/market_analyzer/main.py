@@ -106,8 +106,10 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     max_crash_probability=float(os.getenv("MARKET_ANALYZER_MAX_PORTFOLIO_CRASH","0.50"))
     latest=apply_portfolio_gate(latest,min_confidence=min_confidence,max_crash_probability=max_crash_probability)
     returns=market.pivot(index="date",columns="tic",values="close").pct_change().dropna()
-    eligible=latest[latest["portfolio_eligible"]]
-    eligible=eligible[eligible["decision_score"]>0.0]
+    eligible=latest[latest["portfolio_eligible"]].copy()
+    no_positive_signal=eligible["decision_score"]<=0.0
+    eligible.loc[no_positive_signal,"allocation_reason"]="NO_POSITIVE_SIGNAL"
+    eligible=eligible[~no_positive_signal]
     eligible_assets=[asset for asset in eligible.index if asset in returns.columns]
     eligible_returns=returns[eligible_assets] if eligible_assets else returns.iloc[:,0:0]
     expected=eligible["decision_score"].reindex(eligible_assets).fillna(0.0)
