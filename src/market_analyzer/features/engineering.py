@@ -82,6 +82,7 @@ class FeatureEngineer:
             cols=hist.columns.intersection(current.dropna().index)
             if len(cols)==0: values.append(np.nan); continue
             diff=(current[cols]-hist[cols].mean()).to_numpy(float).reshape(1,-1)
-            cov=hist[cols].cov().to_numpy()
-            values.append(max(float(diff@np.linalg.pinv(cov)@diff.T),0.0))
+            cov=np.atleast_2d(hist[cols].cov().to_numpy(dtype=float))
+            score=(diff@np.linalg.pinv(cov)@diff.T).item()
+            values.append(max(float(score),0.0))
         return df.merge(pd.DataFrame({"date":dates,"turbulence":values}),on="date",how="left")
