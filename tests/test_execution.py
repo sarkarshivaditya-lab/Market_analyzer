@@ -60,3 +60,10 @@ def test_rebalance_liquidates_stale_positions():
     assert out and out[0]["ticker"]=="OLD"
     assert out[0]["side"]=="SELL"
     assert broker.positions["OLD"]==0
+
+
+def test_paper_equity_history_is_persisted():
+    broker=PaperBroker(starting_cash=10000)
+    broker.mark_to_market({"AAA":100})
+    assert broker.equity_history
+    assert broker.equity_history[-1]["equity"]==10000
