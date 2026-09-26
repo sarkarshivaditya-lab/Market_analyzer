@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dataclasses import asdict
 import pandas as pd
 from market_analyzer.data.market import MarketData
 from market_analyzer.data.macro import MacroData
@@ -13,6 +14,7 @@ from market_analyzer.models.crash import CrashRiskModel
 from market_analyzer.models.ensemble import IntelligenceEnsemble
 from market_analyzer.models.multihorizon import MultiHorizonForecaster
 from market_analyzer.models.regime import MarketRegimeModel
+from market_analyzer.models.stress import TimeGANStressTester
 from market_analyzer.decisions.signals import build_investment_signals
 from market_analyzer.risk.optimizer import PortfolioOptimizer
 from market_analyzer.backtest.engine import signal_backtest, performance_metrics
@@ -24,7 +26,7 @@ FEATURES=[
 "macd","rsi_30","boll_ub","boll_lb","close_30_sma","close_60_sma","return_1d","return_5d","return_20d",
 "volatility_20d","volatility_60d","volume_z_20d","drawdown_60d","turbulence","macro_vix","macro_tnx",
 "macro_dx_y_nyb","macro_gc_f","macro_cl_f","macro_vix_chg_5d","macro_vix_z_60d","macro_tnx_chg_20d",
-"macro_dx_y_nyb_chg_5d","macro_gc_f_chg_5d","macro_cl_f_chg_5d","breadth_pct_positive_1d",
+"macro_dx_y_nyb_chg_5d","macro_dx_y_nyb_chg_5d","macro_gc_f_chg_5d","macro_cl_f_chg_5d","breadth_pct_positive_1d",
 "breadth_pct_positive_5d","breadth_median_return_1d","breadth_median_return_5d","market_return_dispersion_1d",
 "market_return_dispersion_5d","market_cross_sectional_range_1d","sector_leader_return_20d","sector_laggard_return_20d",
 "sector_dispersion_20d","spy_return_20d_context","spy_volatility_20d_context","relative_return_20d_vs_spy",
@@ -94,13 +96,20 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     price_matrix=market.pivot(index="date",columns="tic",values="close").sort_index().ffill()
     comparison=compare_strategy_to_benchmark(backtest["return"],price_matrix,benchmark="SPY")
     backtest_summary={"strategy":performance_metrics(backtest),"benchmark":comparison["benchmark"],"transaction_cost_bps":5.0,"slippage_bps":2.0}
+    stress_weights=portfolio.set_index("tic")["target_weight"].reindex(returns.columns).fillna(0.0).to_numpy()
+    stress_input=returns.reindex(columns=portfolio["tic"]).fillna(0.0).to_numpy()
+    stress_model=TimeGANStressTester(feature_dim=stress_input.shape[1],hidden_dim=16,sequence_length=20,seed=42)
+    stress_model.fit(stress_input,epochs=1,batch_size=128)
+    stress_report=stress_model.evaluate(paths=100,weights=stress_weights)
+    stress_summary=asdict(stress_report)
     brief=build_market_brief(signals,portfolio)
     from market_analyzer.dashboard.app import set_state
-    set_state(signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary)
-    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"walk_forward_windows":windows}
+    set_state(signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary,stress=stress_summary)
+    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"stress":stress_summary,"walk_forward_windows":windows}
 
 if __name__=="__main__":
     result=run()
     print(result["brief"])
     print(result["portfolio"].to_string(index=False))
     print(result["backtest_summary"])
+    print(result["stress"])
