@@ -89,7 +89,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     signals=build_investment_signals(decision_frame,pd.DataFrame(columns=["date","tic","crash_probability"]),pd.DataFrame(columns=["date","tic","regime_probability"]),pd.DataFrame(columns=["date","tic","anomaly_score"]))
     latest=signals.sort_values("date").groupby("tic",as_index=False).tail(1).set_index("tic")
     returns=market.pivot(index="date",columns="tic",values="close").pct_change().dropna()
-    expected=latest["ensemble_expected_return"].reindex(returns.columns).fillna(0.0)
+    expected=latest["decision_score"].reindex(returns.columns).fillna(0.0)
     portfolio=PortfolioOptimizer().optimize(expected,returns)
     portfolio=portfolio.rename("target_weight").reset_index()
     portfolio=portfolio.merge(latest[["signal","risk_state"]].reset_index(),on="tic",how="left")
