@@ -25,7 +25,7 @@ class PortfolioOptimizer:
                  previous_weights: pd.Series | None = None) -> pd.Series:
         assets = [a for a in expected_returns.index if a in returns.columns]
         if not assets:
-            return pd.Series(dtype=float)
+            return pd.Series(dtype=float, name="target_weight").rename_axis("tic")
         if len(assets) * self.constraints.max_weight < 1.0:
             raise ValueError("Portfolio constraints are infeasible: max_weight is too small for the number of assets.")
         mu = expected_returns.loc[assets].astype(float).fillna(0.0).to_numpy()
@@ -62,9 +62,9 @@ class PortfolioOptimizer:
                           options={"maxiter": 500, "ftol": 1e-10})
         if not result.success:
             # Preserve the hard concentration constraint even if the volatility target is infeasible.
-            return pd.Series(x0, index=assets)
+            return pd.Series(x0, index=assets, name="target_weight").rename_axis("tic")
         weights = pd.Series(np.clip(result.x, 0.0, self.constraints.max_weight), index=assets)
-        return weights / weights.sum()
+        return (weights / weights.sum()).rename_axis("tic")
 
     @staticmethod
     def portfolio_volatility(weights: pd.Series, returns: pd.DataFrame) -> float:
