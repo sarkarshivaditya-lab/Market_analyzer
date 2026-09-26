@@ -25,7 +25,7 @@ Market data + macro context + point-in-time fundamentals/news
 - Technical, volatility, drawdown, turbulence, macro, fundamentals, and news features.
 - Multi-horizon 1D/5D/20D return forecasting.
 - Crash-risk classification and latent market-regime detection.
-- Isolation-forest anomaly detection.
+- Deterministic robust z-score and turbulence anomaly detection.
 - Leakage-aware stacked intelligence ensemble.
 - Isotonic probability calibration with Brier score, PR-AUC, and log-loss metrics.
 - Long-only covariance-aware portfolio optimization with concentration and turnover controls.
