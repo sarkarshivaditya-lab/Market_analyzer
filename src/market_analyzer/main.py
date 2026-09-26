@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import asdict
+import os
 import pandas as pd
 from market_analyzer.data.market import MarketData
 from market_analyzer.data.macro import MacroData
@@ -119,7 +120,8 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     from market_analyzer.execution.paper import PaperTradingSession
     from market_analyzer.dashboard.app import set_state
     latest_prices=market.sort_values("date").groupby("tic").tail(1).set_index("tic")["close"].to_dict()
-    paper=PaperTradingSession.create(capital=100000.0,state_file="market_analyzer_paper.json")
+    state_file=os.getenv("MARKET_ANALYZER_PAPER_STATE_FILE","market_analyzer_paper.json")
+    paper=PaperTradingSession.create(capital=100000.0,state_file=state_file)
     paper_result=paper.rebalance(portfolio[["tic","target_weight"]],latest_prices)
     set_state(signals=signals[signals["date"]==signals["date"].max()].to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary,stress=stress_summary,paper=paper_result)
     return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"stress":stress_summary,"walk_forward_windows":windows}
