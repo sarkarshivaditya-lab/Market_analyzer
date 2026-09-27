@@ -171,6 +171,20 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     decision_frame=risk_frame[["date","tic","ensemble_expected_return","positive_return_probability","ensemble_confidence","crash_probability","regime_probability","anomaly_score","regime_label"]].copy()
     signals=build_investment_signals(decision_frame,pd.DataFrame(columns=["date","tic","crash_probability"]),pd.DataFrame(columns=["date","tic","regime_probability"]),pd.DataFrame(columns=["date","tic","anomaly_score"]))
     signals["date"]=pd.to_datetime(signals["date"])
+    # Historical research backtests must use nested OOS ensemble predictions,
+    # not predictions from the final production ensemble fitted on all history.
+    oos_decision_frame=nested_ensemble_oos[["date","tic","ensemble_expected_return","positive_return_probability","ensemble_confidence"]].copy()
+    oos_decision_frame=oos_decision_frame.merge(
+        history[["date","tic","crash_probability","regime_probability","anomaly_score","regime_label"]],
+        on=["date","tic"],how="left",
+    )
+    oos_signals=build_investment_signals(
+        oos_decision_frame,
+        pd.DataFrame(columns=["date","tic","crash_probability"]),
+        pd.DataFrame(columns=["date","tic","regime_probability"]),
+        pd.DataFrame(columns=["date","tic","anomaly_score"]),
+    )
+    oos_signals["date"]=pd.to_datetime(oos_signals["date"])
     latest=signals.sort_values("date").groupby("tic",as_index=False).tail(1).set_index("tic")
     min_confidence=float(os.getenv("MARKET_ANALYZER_MIN_PORTFOLIO_CONFIDENCE","0.05"))
     max_crash_probability=float(os.getenv("MARKET_ANALYZER_MAX_PORTFOLIO_CRASH","0.50"))
@@ -187,7 +201,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     portfolio=portfolio.rename("target_weight").reindex(returns.columns,fill_value=0.0).reset_index()
     portfolio=portfolio.merge(latest[["signal","risk_state","confidence","portfolio_eligible","allocation_reason"]].reset_index(),on="tic",how="right").fillna({"target_weight":0.0})
     price_frame=market[["date","tic","close"]].copy()
-    backtest=signal_backtest(signals,price_frame,transaction_cost_bps=5.0,slippage_bps=2.0)
+    backtest=signal_backtest(oos_signals,price_frame,transaction_cost_bps=5.0,slippage_bps=2.0)
     benchmark_market=YahooMarketData(start,end,["^NSEI"]).fetch()
     benchmark_prices=benchmark_market.pivot(index="date",columns="tic",values="close").rename(columns={"^NSEI":"NIFTY50"})
     price_matrix=market.pivot(index="date",columns="tic",values="close").sort_index().ffill()
@@ -277,7 +291,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     paper=PaperTradingSession.create(capital=100000.0,state_file=state_file)
     paper_result=paper.rebalance(portfolio[["tic","target_weight"]],latest_prices)
     set_state(signals=latest_signal_records.to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary,stress=stress_summary,paper=paper_result,market={"symbols":list(chart_market),"default_symbol":str(portfolio.iloc[0]["tic"]) if len(portfolio) else (list(chart_market)[0] if chart_market else None),"series":chart_market,"regime":regime_rows},performance={"series":performance_records})
-    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"ensemble_oos_predictions":nested_ensemble_oos,"signals":signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"stress":stress_summary,"walk_forward_windows":windows,"dashboard_market":chart_market,"dashboard_performance":performance_records,"dashboard_regime":regime_rows}
+    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"ensemble_oos_predictions":nested_ensemble_oos,"signals":signals,"oos_signals":oos_signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"stress":stress_summary,"walk_forward_windows":windows,"dashboard_market":chart_market,"dashboard_performance":performance_records,"dashboard_regime":regime_rows}
 
 if __name__=="__main__":
     result=run()
