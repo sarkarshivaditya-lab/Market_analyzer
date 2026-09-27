@@ -159,24 +159,34 @@ def reconcile(store_path: str, actions_path: str, start: str, end: str, top: int
     actions = parse_corporate_actions(_normalize_actions(pd.read_csv(actions_path)))
     usable = actions.dropna(subset=["ex_date", "price_factor"]).copy()
     jumps["date"] = pd.to_datetime(jumps["date"])
+    all_actions = actions[["tic", "ex_date", "purpose", "price_factor", "adjustment_type"]].copy()
+    all_actions["ex_date"] = pd.to_datetime(all_actions["ex_date"], errors="coerce")
     matched = jumps.merge(
-        usable[["tic", "ex_date", "purpose", "price_factor", "adjustment_type"]],
+        all_actions,
         left_on=["tic", "date"],
         right_on=["tic", "ex_date"],
         how="left",
     )
     matched["matched_action"] = matched["purpose"].notna()
+    matched["adjustable_match"] = matched["matched_action"] & matched["price_factor"].notna()
     matched["abs_jump_pct"] = matched["jump_pct"].abs()
     matched = matched.sort_values("abs_jump_pct", ascending=False)
     print(f"price_jump_candidates={len(jumps)}")
     print(f"parsed_actions={len(actions)}")
     print(f"automatically_adjustable_actions={len(usable)}")
-    print(f"jumps_matching_unambiguous_action={int(matched['matched_action'].sum())}")
-    print("=== TOP JUMPS WITH CORPORATE-ACTION MATCHES ===")
+    print(f"jumps_matching_any_action={int(matched['matched_action'].sum())}")
+    print(f"jumps_matching_adjustable_action={int(matched['adjustable_match'].sum())}")
+    print("=== TOP JUMPS WITH CORPORATE-ACTION CLASSIFICATION ===")
     print(
-        matched.head(max(top, 0))[["tic", "date", "jump_pct", "purpose", "price_factor", "adjustment_type"]].to_string(index=False)
+        matched.head(max(top, 0))[["tic", "date", "jump_pct", "purpose", "price_factor", "adjustment_type", "adjustable_match"]].to_string(index=False)
         if not matched.empty else "None."
     )
+    print("=== MATCH CLASSIFICATION ===")
+    if matched["matched_action"].any():
+        summary = matched.loc[matched["matched_action"]].groupby("adjustment_type", dropna=False).size().sort_values(ascending=False)
+        print(summary.to_string())
+    else:
+        print("No exact jump/action matches.")
 
 
 def main() -> None:
