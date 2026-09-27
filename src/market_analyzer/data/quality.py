@@ -131,3 +131,102 @@ def audit_market_data(frame: pd.DataFrame, expected_sessions: pd.DatetimeIndex |
         price_jump_candidates=price_jump_candidates,
         ticker_date_gaps=ticker_date_gaps,
     )
+
+
+
+def classify_jump_context(
+    jumps: pd.DataFrame,
+    frame: pd.DataFrame,
+    actions: pd.DataFrame,
+    expected_sessions: pd.DatetimeIndex,
+    action_window_days: int = 5,
+) -> pd.DataFrame:
+    """Attach nearby corporate-action and continuity-gap context to jump candidates.
+
+    This is diagnostic only. It never assigns an adjustment factor or changes prices.
+    Exact action matches take precedence over nearby/gap classifications.
+    """
+    required_jump = ["tic", "date"]
+    if any(column not in jumps.columns for column in required_jump):
+        raise ValueError("jumps must contain tic and date")
+    required_frame = ["tic", "date"]
+    if any(column not in frame.columns for column in required_frame):
+        raise ValueError("frame must contain tic and date")
+    result = jumps.copy()
+    result["tic"] = result["tic"].astype("string").str.strip().str.upper()
+    result["date"] = pd.to_datetime(result["date"], errors="coerce")
+    market = frame[["tic", "date"]].copy()
+    market["tic"] = market["tic"].astype("string").str.strip().str.upper()
+    market["date"] = pd.to_datetime(market["date"], errors="coerce")
+    market = market.dropna(subset=["tic", "date"])
+    sessions = pd.DatetimeIndex(expected_sessions).normalize().sort_values().unique()
+
+    action_rows = actions.copy()
+    if action_rows.empty:
+        action_rows = pd.DataFrame(columns=["tic", "ex_date", "purpose", "price_factor", "adjustment_type"])
+    action_rows["tic"] = action_rows["tic"].astype("string").str.strip().str.upper()
+    action_rows["ex_date"] = pd.to_datetime(action_rows["ex_date"], errors="coerce")
+    action_rows = action_rows.dropna(subset=["tic", "ex_date"])
+
+    market_dates = {tic: pd.DatetimeIndex(group["date"].unique()).sort_values() for tic, group in market.groupby("tic", sort=False)}
+    action_groups = {tic: group.sort_values("ex_date") for tic, group in action_rows.groupby("tic", sort=False)}
+    rows = []
+    for jump in result.to_dict("records"):
+        tic = jump["tic"]
+        date = jump["date"]
+        row = dict(jump)
+        group_actions = action_groups.get(tic, action_rows.iloc[0:0])
+        exact = group_actions[group_actions["ex_date"].eq(date)]
+        if not exact.empty:
+            action = exact.iloc[0]
+            row.update({
+                "nearest_action_date": action["ex_date"],
+                "nearest_action_days": 0,
+                "nearest_action_purpose": action.get("purpose"),
+                "nearest_action_type": action.get("adjustment_type"),
+                "nearest_action_factor": action.get("price_factor"),
+                "exact_action": True,
+            })
+        else:
+            row.update({
+                "nearest_action_date": pd.NaT,
+                "nearest_action_days": pd.NA,
+                "nearest_action_purpose": None,
+                "nearest_action_type": None,
+                "nearest_action_factor": None,
+                "exact_action": False,
+            })
+            if not group_actions.empty:
+                distances = (group_actions["ex_date"] - date).abs().dt.days
+                nearest_idx = distances.idxmin()
+                nearest_days = int(distances.loc[nearest_idx])
+                if nearest_days <= action_window_days:
+                    action = group_actions.loc[nearest_idx]
+                    row.update({
+                        "nearest_action_date": action["ex_date"],
+                        "nearest_action_days": nearest_days,
+                        "nearest_action_purpose": action.get("purpose"),
+                        "nearest_action_type": action.get("adjustment_type"),
+                        "nearest_action_factor": action.get("price_factor"),
+                    })
+        observed = market_dates.get(tic, pd.DatetimeIndex([]))
+        prior = observed[observed < date]
+        previous_observation = prior[-1] if len(prior) else pd.NaT
+        gap_sessions = 0
+        if pd.notna(previous_observation):
+            between = sessions[(sessions > previous_observation) & (sessions < date)]
+            gap_sessions = int(len(between))
+        row["previous_observation"] = previous_observation
+        row["gap_sessions"] = gap_sessions
+        row["post_gap"] = gap_sessions > 0
+        if row["exact_action"]:
+            classification = "exact_action"
+        elif row["nearest_action_date"] is not pd.NaT and pd.notna(row["nearest_action_date"]):
+            classification = "near_action_and_post_gap" if row["post_gap"] else "near_action"
+        elif row["post_gap"]:
+            classification = "post_gap"
+        else:
+            classification = "unexplained"
+        row["classification"] = classification
+        rows.append(row)
+    return pd.DataFrame(rows)
