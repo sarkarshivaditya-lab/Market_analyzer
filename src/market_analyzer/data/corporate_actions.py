@@ -29,8 +29,18 @@ def parse_corporate_action(symbol: str, ex_date: str, purpose: str) -> Corporate
     date = pd.Timestamp(ex_date)
 
     # Composite NSE descriptions can mention both a bonus and a face-value
-    # split. For the equity price series, use the explicit face-value split;
-    # do not independently apply the bonus ratio from the same description.
+    # split. In this dataset the historical price series already reflects the
+    # face-value subdivision, while the observed discontinuity corresponds to
+    # the bonus factor. Treat the composite event as the bonus adjustment.
+    if "BONUS" in purpose_upper and (
+        "SPLIT" in purpose_upper or "SPLT" in purpose_upper
+        or "SUB-DIVISION" in purpose_upper or "SUBDIVISION" in purpose_upper
+    ):
+        ratio = _ratio(purpose_upper)
+        if ratio:
+            bonus, existing = ratio
+            return CorporateAction(tic, date, purpose, existing / (existing + bonus), "bonus")
+
     if "SPLIT" in purpose_upper or "SPLT" in purpose_upper or "SUB-DIVISION" in purpose_upper or "SUBDIVISION" in purpose_upper:
         values = re.findall(r"(?:RS\.?\s*)?(\d+(?:\.\d+)?)", purpose_upper)
         if len(values) >= 2:
