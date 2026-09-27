@@ -364,3 +364,10 @@ The next assistant should not jump directly into parameter tuning or UI work wit
   3. `PYTHONPATH=src python -m market_analyzer.main`
 - Do not compare the new backtest CAGR/Sharpe with the old 53.83%/2.36 figures as an apples-to-apples model improvement. The research methodology changed to remove retrospective signal contamination.
 - Expanded retraining remains blocked pending point-in-time universe enforcement, fold-specific cross-sectional context, external information-availability timestamps, and residual jump/symbol-history investigation.
+
+
+### Backtest date-contract fix — 2026-09-27
+- The new OOS backtest regression initially failed because `signal_backtest()` preserved string-valued date indices when callers supplied string dates.
+- Corrected in commit `cd0d1015ffe44d08a96ac4076624945e29f027a6`: `signal_backtest()` now normalizes both price and signal dates with `pd.to_datetime()` at its boundary.
+- This is an engine-level data-contract hardening change; the regression test remains strict about Timestamp-index access.
+- Re-run the same targeted suite before the full application runtime.
