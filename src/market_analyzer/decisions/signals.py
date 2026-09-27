@@ -17,6 +17,14 @@ def build_investment_signals(forecast, crash, regime, anomaly):
         out["expected_return"]=out["ensemble_expected_return"]
         out["confidence"]=out["ensemble_confidence"]
         out["positive_return_probability"]=out["positive_return_probability"]
+        if "crash_probability" not in out:
+            out["crash_probability"]=0.0
+        if "regime_probability" not in out:
+            out["regime_probability"]=0.5
+        if "anomaly_score" not in out:
+            out["anomaly_score"]=0.0
+        if "regime_label" not in out:
+            out["regime_label"]="UNKNOWN"
         out["decision_score"]=out["ensemble_expected_return"]*out["positive_return_probability"]*(1-out["crash_probability"].fillna(0))
     else:
         trend=np.tanh(out["expected_return"]*10.0)
