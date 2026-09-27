@@ -61,13 +61,13 @@ def test_abbreviated_face_value_split_is_adjustable():
     assert action.price_factor == pytest.approx(0.2)
 
 
-def test_composite_bonus_face_value_split_uses_split_factor():
+def test_composite_bonus_face_value_split_uses_bonus_factor():
     action = parse_corporate_action(
         "ABC", "2026-01-10",
         "Bonus 1:1/Face Value Split (Sub-Division) - From Rs 10/- Per Share To Rs 2/- Per Share",
     )
-    assert action.adjustment_type == "split"
-    assert action.price_factor == pytest.approx(0.2)
+    assert action.adjustment_type == "bonus"
+    assert action.price_factor == pytest.approx(0.5)
 
 
 def test_bonus_ncrps_is_review_only():
