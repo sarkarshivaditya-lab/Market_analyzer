@@ -28,22 +28,29 @@ def parse_corporate_action(symbol: str, ex_date: str, purpose: str) -> Corporate
     tic = str(symbol).strip().upper()
     date = pd.Timestamp(ex_date)
 
+    # Composite NSE descriptions can mention both a bonus and a face-value
+    # split. For the equity price series, use the explicit face-value split;
+    # do not independently apply the bonus ratio from the same description.
+    if "SPLIT" in purpose_upper or "SUB-DIVISION" in purpose_upper or "SUBDIVISION" in purpose_upper:
+        values = re.findall(r"(?:RS\.?\s*)?(\d+(?:\.\d+)?)", purpose_upper)
+        if len(values) >= 2:
+            old_value, new_value = float(values[-2]), float(values[-1])
+            if old_value > 0 and new_value > 0 and re.search(
+                r"FACE VALUE|PER SHARE|FROM .* TO|FV\s+SPLT|FV\.\s*SPLT", purpose_upper
+            ):
+                return CorporateAction(tic, date, purpose, new_value / old_value, "split")
+        return CorporateAction(tic, date, purpose, None, "review")
+
+    # NCRPS/CRPS are preference shares issued under a scheme, not additional
+    # equity shares, so they must not be used to back-adjust the equity series.
+    if re.search(r"\b(?:N?CRPS|PREFERENCE)\b", purpose_upper):
+        return CorporateAction(tic, date, purpose, None, "review")
+
     if "BONUS" in purpose_upper:
         ratio = _ratio(purpose_upper)
         if ratio:
             bonus, existing = ratio
             return CorporateAction(tic, date, purpose, existing / (existing + bonus), "bonus")
-        return CorporateAction(tic, date, purpose, None, "review")
-
-    if "SPLIT" in purpose_upper or "SUB-DIVISION" in purpose_upper or "SUBDIVISION" in purpose_upper:
-        values = re.findall(r"(?:RS\.?\s*)?(\d+(?:\.\d+)?)", purpose_upper)
-        if len(values) >= 2:
-            old_value, new_value = float(values[-2]), float(values[-1])
-            if old_value > 0 and new_value > 0 and re.search(r"FACE VALUE|PER SHARE|FROM .* TO", purpose_upper):
-                return CorporateAction(tic, date, purpose, new_value / old_value, "split")
-        # A bare ratio is not sufficient evidence of a price-adjusting split.
-        # Keep ratio-only descriptions review-only unless face-value/share-value
-        # text explicitly establishes the old and new face values.
         return CorporateAction(tic, date, purpose, None, "review")
 
     return CorporateAction(tic, date, purpose, None, "review")
