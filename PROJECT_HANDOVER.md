@@ -8,8 +8,8 @@ This file is the persistent handover for the next development session. Before ch
 
 Repository: sarkarshivaditya-lab/Market_analyzer
 Default branch: main
-Latest audited commit: a8ef4650b4a0be05f49d114067981368265229ef (dashboard runtime serialization fix)
-Latest commit message: reuse serialized dashboard signals
+Latest audited commit: 9c635645c2cdf21adf30300c3e34666a9bc37bcd (separate adjusted NSE research store builder)
+Latest commit message: add separate adjusted NSE research store builder
 
 The repository is an AI-driven Indian-market financial intelligence and portfolio-decision platform. It currently contains market ingestion, technical/context features, multi-horizon forecasting, crash-risk classification, regime detection, anomaly scoring, a stacked ensemble, probability calibration, portfolio optimization, backtesting, TimeGAN stress testing, FastAPI dashboard, paper trading, and guarded Zerodha execution scaffolding.
 
@@ -211,6 +211,17 @@ Paper state still contains legacy QQQ/SPY/TLT positions in the persistent paper 
 13. Only revisit broker execution after data, model, backtest, and dashboard layers are stable.
 
 The next assistant should not jump directly into parameter tuning or UI work without first completing step 1 and recording the audit findings.
+
+
+## Goal 1 continuation — 2026-09-27
+- Corporate-action reconciliation was corrected so exact price-jump matches are retained even when the action is review-only; the report now distinguishes any exact action match from an automatically adjustable match and prints adjustment-type classification.
+- The corporate-action parser was tightened: ratio-only split descriptions are review-only unless explicit face/share-value text establishes a price-adjusting split.
+- Added a non-destructive adjusted research-series builder. Corporate actions are applied only to a separate research copy; raw NSE SQLite remains the source of truth and is never mutated.
+- Optimized cumulative historical adjustment factors by ticker so the ~5M-row NSE store is not scanned once per corporate action.
+- Added scripts/build_adjusted_nse_store.py to materialize a separate data/market/nse_adjusted.sqlite research store from the raw store plus the acquired NSE corporate-action CSV.
+- Added regression coverage for ratio-only split safety, cumulative adjustments, and raw-frame immutability.
+- Next immediate task: run the corrected reconciliation against the full 1,133-symbol universe, inspect the exact-match classification counts, build the adjusted research store, then audit continuity/gaps on the 1,133 eligible universe rather than the full long tail.
+- No expanded model retraining should occur until those checks complete.
 
 
 ## Goal 1 audit status — 2026-09-26
