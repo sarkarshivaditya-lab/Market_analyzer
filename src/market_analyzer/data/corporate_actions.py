@@ -31,7 +31,7 @@ def parse_corporate_action(symbol: str, ex_date: str, purpose: str) -> Corporate
     # Composite NSE descriptions can mention both a bonus and a face-value
     # split. For the equity price series, use the explicit face-value split;
     # do not independently apply the bonus ratio from the same description.
-    if "SPLIT" in purpose_upper or "SUB-DIVISION" in purpose_upper or "SUBDIVISION" in purpose_upper:
+    if "SPLIT" in purpose_upper or "SPLT" in purpose_upper or "SUB-DIVISION" in purpose_upper or "SUBDIVISION" in purpose_upper:
         values = re.findall(r"(?:RS\.?\s*)?(\d+(?:\.\d+)?)", purpose_upper)
         if len(values) >= 2:
             old_value, new_value = float(values[-2]), float(values[-1])
