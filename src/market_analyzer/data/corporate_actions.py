@@ -83,11 +83,24 @@ def apply_backward_adjustments(frame: pd.DataFrame, actions: pd.DataFrame) -> pd
     result = frame.copy()
     result["date"] = pd.to_datetime(result["date"])
     result["tic"] = result["tic"].astype(str).str.strip().str.upper()
-    for action in actions.itertuples(index=False):
-        if pd.isna(action.ex_date) or action.price_factor is None or action.price_factor <= 0:
-            continue
+    if actions.empty:
+        return result.sort_values(["tic", "date"]).reset_index(drop=True)
+    usable = actions.dropna(subset=["ex_date", "price_factor"]).copy()
+    usable["ex_date"] = pd.to_datetime(usable["ex_date"], errors="coerce")
+    usable["price_factor"] = pd.to_numeric(usable["price_factor"], errors="coerce")
+    usable = usable[usable["price_factor"] > 0]
+    # Apply every eligible action cumulatively. This creates a research-only
+    # adjusted series while leaving the raw source frame untouched.
+    for action in usable.sort_values(["tic", "ex_date"]).itertuples(index=False):
         mask = (result["tic"] == action.tic) & (result["date"] < pd.Timestamp(action.ex_date))
         for column in ["open", "high", "low", "close"]:
             result.loc[mask, column] = result.loc[mask, column] * action.price_factor
         result.loc[mask, "volume"] = result.loc[mask, "volume"] / action.price_factor
     return result.sort_values(["tic", "date"]).reset_index(drop=True)
+
+
+def build_adjusted_research_frame(frame: pd.DataFrame, actions: pd.DataFrame) -> pd.DataFrame:
+    """Return a corporate-action-adjusted research copy without mutating raw data."""
+    result = apply_backward_adjustments(frame, actions)
+    result["price_adjusted"] = True
+    return result
