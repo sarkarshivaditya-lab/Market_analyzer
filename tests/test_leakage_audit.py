@@ -34,7 +34,7 @@ def test_train_target_boundary_detects_crossing_target():
 def test_train_target_boundary_passes_after_purge():
     frame = fixture()
     train = frame.iloc[:1].copy()
-    finding = audit_train_target_boundary(frame, train, frame["date"].iloc[0], horizon=5)
+    finding = audit_train_target_boundary(frame, train, frame["date"].iloc[5], horizon=5)
     assert finding.status == "PASS"
 
 
