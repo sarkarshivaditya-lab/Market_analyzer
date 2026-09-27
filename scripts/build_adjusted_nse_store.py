@@ -6,16 +6,12 @@ import argparse
 from pathlib import Path
 import pandas as pd
 
-from market_analyzer.data.corporate_actions import build_adjusted_research_frame, parse_corporate_actions
+from market_analyzer.data.corporate_actions import (
+    build_adjusted_research_frame,
+    filter_corporate_actions_to_window,
+    parse_corporate_actions,
+)
 from market_analyzer.data.local import NSELocalMarketStore
-
-
-def _actions_in_window(actions: pd.DataFrame, start: str, end: str) -> pd.DataFrame:
-    result = actions.copy()
-    result["ex_date"] = pd.to_datetime(result["ex_date"], errors="coerce")
-    start_date = pd.Timestamp(start)
-    end_date = pd.Timestamp(end)
-    return result[result["ex_date"].between(start_date, end_date)].copy()
 
 
 def main() -> None:
@@ -34,7 +30,7 @@ def main() -> None:
 
     actions_frame = pd.read_csv(args.actions)
     actions = parse_corporate_actions(actions_frame)
-    actions = _actions_in_window(actions, args.start, args.end)
+    actions = filter_corporate_actions_to_window(actions, args.start, args.end)
     adjustable = actions.dropna(subset=["ex_date", "price_factor"]).copy()
     adjusted = build_adjusted_research_frame(frame, adjustable)
 
