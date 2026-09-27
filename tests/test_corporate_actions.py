@@ -46,3 +46,9 @@ def test_ambiguous_action_is_not_automatically_adjusted():
     action = parse_corporate_action("ABC", "2026-01-10", "Demerger")
     assert action.adjustment_type == "review"
     assert action.price_factor is None
+
+
+def test_ratio_only_split_is_review_only():
+    action = parse_corporate_action("ABC", "2026-01-10", "Split 1:5")
+    assert action.adjustment_type == "review"
+    assert action.price_factor is None
