@@ -214,35 +214,57 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 
 
 ## Goal 1 continuation — 2026-09-27
-- Corporate-action reconciliation was corrected so exact price-jump matches are retained even when the action is review-only; the report now distinguishes any exact action match from an automatically adjustable match and prints adjustment-type classification.
-- The corporate-action parser was tightened: ratio-only split descriptions are review-only unless explicit face/share-value text establishes a price-adjusting split.
-- Added a non-destructive adjusted research-series builder. Corporate actions are applied only to a separate research copy; raw NSE SQLite remains the source of truth and is never mutated.
-- Optimized cumulative historical adjustment factors by ticker so the ~5M-row NSE store is not scanned once per corporate action.
-- Added scripts/build_adjusted_nse_store.py to materialize a separate data/market/nse_adjusted.sqlite research store from the raw store plus the acquired NSE corporate-action CSV.
-- Added regression coverage for ratio-only split safety, cumulative adjustments, and raw-frame immutability.
-- Next immediate task: run the corrected reconciliation against the full 1,133-symbol universe, inspect the exact-match classification counts, build the adjusted research store, then audit continuity/gaps on the 1,133 eligible universe rather than the full long tail.
-- No expanded model retraining should occur until those checks complete.
 
+### Corporate-action adjustment milestone
+- Corporate-action parser was corrected for composite bonus + face-value split events. When both are explicitly described in the same event, the parser combines the bonus and split price factors rather than treating the components independently.
+- Ratio-only split descriptions remain review-only unless explicit face/share-value text establishes an actual face-value change. This prevents false historical price adjustments.
+- Added `filter_corporate_actions_to_window()` and applied it in `scripts/build_adjusted_nse_store.py`. Corporate actions outside the requested research window are excluded, preventing an event after the as-of/end date from back-adjusting earlier observations in a finite research dataset.
+- The adjusted research series remains non-destructive. `data/market/nse.sqlite` is never mutated; the separate `data/market/nse_adjusted.sqlite` store is the research artifact.
+- Corporate-action regression suite is now green: `11 passed in 0.17s`.
+- Latest adjusted-store rebuild verified:
+  - raw_rows=4,914,061
+  - parsed_actions=12,530
+  - adjustable_actions=445
+  - adjusted_rows_written=4,914,061
+  - adjusted_tickers=3,796
+  - raw_store_unchanged=True
+- The lower parsed/adjustable counts relative to the full API acquisition are expected because the research window is 2015-01-01 through 2026-09-27; actions outside that window are deliberately excluded.
+- The corrected continuity classification on the adjusted store reports:
+  - gap_runs=808
+  - tickers_with_gaps=327
+  - total_missing_sessions=40,747
+  - residual price-jump candidates=224
+  - exact action/date matches=11
+  - exact matches with an automatically adjustable factor=0
+  - all 11 exact matches are review-only events
+- The 11 exact review-only matches are:
+  - ADANIENT 2015-06-03 — Scheme Of Arrangement — -82.77%
+  - SINTEX 2017-05-25 — Scheme Of Arrangement — -75.17%
+  - ABFRL 2025-05-22 — Demerger — -66.59%
+  - ARVIND 2018-11-28 — Demerger — -65.09%
+  - VEDL 2026-04-30 — Demerger — -64.90%
+  - IDFC 2015-10-01 — Demerger — -57.21%
+  - TATACHEM 2020-03-04 — Demerger — -56.53%
+  - HERITGFOOD 2023-01-20 — Rights 1:1 @ Premium Rs 0/- — -46.84%
+  - PEL 2022-08-30 — Demerger — -44.79%
+  - SIEMENS 2025-04-07 — Demerger — -42.93%
+  - IDEA 2019-03-29 — Rights 87:38 @ Premium Of Rs 2.50 Per Share — -37.07%
+- Therefore the current adjustment engine should NOT be broadened merely to eliminate every residual jump. Review-only actions such as demergers, schemes of arrangement, and rights issues may represent genuine economic/share-structure events requiring separate treatment rather than simple price-factor normalization.
+- The largest unmatched residuals include VERTOZ +621.66%, MCLEODRUSS +566.67%, OPTIEMUS +261.79%, OLECTRA +234.25%, MEDICO +225.56%, SPTL +188.89%, OPTIEMUS +182.08%, GLOBUSSPR +148.92%, TEJASNET +141.70%, and TTML +131.81%.
+- Several large residuals occur immediately after long missing-data runs, so continuity and corporate-action context must be classified together. Do not infer an adjustment factor from the observed price jump alone.
+- Current point-in-time universe audit remains an explicit prerequisite for retraining. The full-period static 1,133-symbol registry is useful for screening but must not become the historical training universe without as-of filtering.
+- Expanded model retraining remains blocked.
 
-## Goal 1 audit status — 2026-09-26
-- Local NSE store audit: 4,914,061 rows across 3,796 tickers; zero duplicate rows, missing values, invalid OHLC rows, nonpositive prices, or negative-volume rows.
-- Universe screen: 3,796 symbols examined; 1,133 currently eligible under the configured history/coverage/liquidity/symbol filters.
-- Raw-price continuity remains unresolved: 2,180 close-jump candidates at the 1.5x threshold.
-- Large candidates include extreme discontinuities such as KAUSHALYA, WINSOME, DIACABS, SUMEETINDS and ARIHANT; these must be reconciled against corporate actions before expanded retraining.
-- 1,702 tickers have at least one missing expected session within their observed active span; this statistic includes the long tail and must be re-evaluated on the eligible universe.
-- NSE documentation identifies corporate-action reports containing symbol, series, ex-date and corporate-action description, and notes that Bhavcopy prices are unadjusted while certain NSE reports provide corporate-action-adjusted values.
-- Added conservative corporate-action parser/adjuster supporting unambiguous bonus and split factors; ambiguous actions such as rights/demergers remain review-only. The current parser still needs tightening because ratio-only split text is too permissive.
-- Added scripts/reconcile_corporate_actions.py with resumable NSE corporate-action API acquisition. Full acquisition completed for 1,133 eligible symbols: 925 freshly fetched, 208 cached, 0 failed, 15,651 rows, ex-date range 1996-12-04 to 2026-10-06.
-- Reconciliation currently reports 15,651 parsed actions, 548 automatically adjustable actions, and 349 price-jump candidates with exact ticker/ex-date matches. The report currently does not expose the matched action details correctly; all 349 must be inspected/classified before any adjustment.
-- Raw SQLite market data has not been mutated by corporate-action processing. This must remain the invariant.
-- Added --universe and --summary-only support to the NSE audit CLI.
-- Expanded retraining remains blocked pending corporate-action reconciliation, adjusted research-series construction, eligible-universe continuity/survivorship checks, and leakage review.
+### Immediate next execution
+1. Build a residual-jump classifier that joins the 224 residuals against:
+   - exact-date corporate actions,
+   - nearby corporate actions within a bounded date window,
+   - the end of preceding continuity gaps,
+   - the start of following continuity gaps,
+   - symbol-level listing/history boundaries.
+2. Classify residuals into evidence-backed buckets such as exact corporate action, near-action, post-gap continuity issue, overlap/ambiguous, or unexplained.
+3. Do not automatically adjust any new class until the evidence supports a deterministic factor.
+4. Re-run the point-in-time universe audit and explicitly measure whether the remaining gaps can contaminate feature lookback/label horizons.
+5. Audit survivorship and symbol-history handling, then perform the leakage audit.
+6. Only after those checks pass, retrain the model stack on the expanded Indian dataset.
 
-## Goal 1 point-in-time universe audit — 2026-09-27
-- Adjusted research store audit passed structural checks: 4,914,061 rows, 3,796 tickers, zero duplicates/missing values/invalid OHLC/nonpositive prices/negative volume/zero volume.
-- On the 1,133 full-period eligible symbols, the adjusted store contains 2,488,774 rows and 237 price-jump candidates at the existing 1.5x threshold.
-- Eligible-universe continuity currently shows 327 tickers with at least one missing expected session. This is not yet a failure: gaps must be classified by duration, listing/suspension lifecycle, and whether they materially affect model windows.
-- Added scripts/audit_point_in_time_universe.py to quantify quarterly point-in-time eligible-universe counts using eligible_tickers_on(), which filters data at each as-of date and therefore does not use future rows.
-- Added a regression test proving the point-in-time eligibility calculation does not admit a newly listed ticker before it has sufficient history.
-- Immediate next execution: run scripts/audit_point_in_time_universe.py against data/market/nse_adjusted.sqlite, then use its quarterly counts and gap/jump summaries to determine survivorship and continuity risk.
-- Expanded retraining remains blocked until the point-in-time universe and remaining discontinuities are understood.
