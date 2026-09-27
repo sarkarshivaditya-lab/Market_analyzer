@@ -9,7 +9,7 @@ import pandas as pd
 
 from market_analyzer.data.corporate_actions import parse_corporate_actions
 from market_analyzer.data.local import NSELocalMarketStore
-from market_analyzer.data.quality import price_jump_details, ticker_gap_details
+from market_analyzer.data.quality import classify_jump_context, price_jump_details
 
 
 def _gap_runs(frame: pd.DataFrame, sessions: pd.DatetimeIndex) -> pd.DataFrame:
@@ -113,6 +113,18 @@ def main() -> None:
         .head(args.top).to_string(index=False)
         if not unmatched.empty else "None."
     )
+
+    context = classify_jump_context(jumps, frame, actions, sessions)
+    print()
+    print("=== RESIDUAL CONTEXT CLASSIFICATION ===")
+    print(context["classification"].value_counts().sort_index().to_string())
+    print("context_top=")
+    columns = [
+        "tic", "date", "jump_pct", "classification", "gap_sessions",
+        "previous_observation", "nearest_action_date", "nearest_action_days",
+        "nearest_action_purpose", "nearest_action_type", "nearest_action_factor",
+    ]
+    print(context[columns].head(args.top).to_string(index=False) if not context.empty else "None.")
 
 
 if __name__ == "__main__":
