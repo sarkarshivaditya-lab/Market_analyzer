@@ -420,3 +420,148 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 - Current production signal output is predominantly negative/neutral and the optimizer allocated 0% to all six assets, so the live decision path is currently effectively cash. This is a model/output behavior to investigate, not a reason to alter gates merely to force exposure.
 - Remaining blockers before expanded retraining remain: point-in-time historical universe enforcement, historical cross-sectional context availability, external fundamentals/news timestamps, fold-specific regime/anomaly/crash semantics, residual unexplained/post-gap price jumps and symbol-history handling.
 - Next methodological work should diagnose the weak OOS result with simple baselines, fold/time-period/regime breakdowns, feature/model ablations, and signal/coverage diagnostics before hyperparameter tuning or expanded retraining.
+
+
+## SESSION STOPPOINT — 2026-09-27
+
+### Current verified state
+- Goal 3 dashboard work remains completed and runtime-verified.
+- Goal 1 data-quality/leakage work progressed substantially.
+- Targeted validation currently passes: **14 passed in 1.66s**.
+- Full `PYTHONPATH=src python -m market_analyzer.main` completes successfully.
+- Current production date: 2026-09-25.
+- Do not treat this as a fresh project. Read this handover and inspect the current code before making further changes.
+
+### Leakage/OOS methodology now in place
+- Base forecasters are evaluated walk-forward.
+- Historical ensemble evaluation is strictly nested: each ensemble test fold is trained only on earlier OOS base predictions.
+- Historical meta-training excludes `crash_probability`, `regime_probability`, and `anomaly_score` because those outputs were previously produced by final/latest risk-model fits rather than fold-specific historical fits.
+- Historical research backtest uses nested OOS ensemble predictions rather than the final production ensemble.
+- Ensemble-only historical signals now receive neutral defaults for unavailable historical risk outputs instead of importing final/latest risk predictions.
+- Backtest dates are normalized internally to pandas datetime.
+- Regression coverage exists in `tests/test_backtest_oos.py`.
+- Leakage tests cover target boundaries, walk-forward boundaries, fold isolation, availability timestamps, and model target purging.
+
+### Key recent commits
+- `26100ae38e8ff1974df11d97bd5b3874298441e3` — nested ensemble/calibration evaluation refactor.
+- `ce8f4da000b5d234318b91e389af4b2ca844c370` — normalize ensemble history dates.
+- `7e88ea685e140a084d61a16b48ec1093208b1ff4` — use nested OOS predictions for research backtest.
+- `d5822132e228c6584884f857e5aebd34b00d9373` — remove non-OOS risk features from historical ensemble.
+- `9ea5adb56533243dba71cc87ebf3a7f6db07d760` — OOS backtest regression test.
+- `cd0d1015ffe44d08a96ac4076624945e29f027a6` — normalize backtest dates internally.
+- `b13c8c1f1e3bda54932b651e268c6d04fad04baf` — correct transaction-cost expectations in regression test.
+- `ee6add967ce4806768051c2a28906c53aa3ed823` — use tolerant floating-point assertions.
+- `7064250a13e84f7af8b1528d0428c77ac67397f0` — allow ensemble-only OOS signal construction without risk leakage.
+- `0a93cf4ad583e715c0775a17f65044e7506b8f65` — remove stale non-OOS risk merge from research backtest.
+- `5d419635af8a9283dcbd65f3bbd1de4736734e46` — fix NIFTY50 benchmark date alignment.
+- `441fac619ed9f6239d6f7e30b2bb2cf983f76bb0` — record corrected leakage-clean OOS baseline.
+
+### Latest trustworthy OOS baseline
+Targeted tests: **14 passed**.
+
+Nested-OOS signal-weighted research backtest:
+- CAGR: **3.3399%**
+- Volatility: **15.9583%**
+- Sharpe: **0.2861**
+- Sortino: **0.2993**
+- Max drawdown: **-39.7169%**
+- Total turnover: **1311.38**
+- Total transaction/slippage cost: **0.91796**
+
+NIFTY50 over the same comparison period:
+- Total return: **175.63%**
+- CAGR: **9.2035%**
+- Volatility: **16.1219%**
+- Sharpe: **0.6274**
+- Sortino: **0.9630**
+- Max drawdown: **-38.4399%**
+- Hit rate: **53.14%**
+- Worst day: **-12.98%**
+
+The earlier reported strategy results around 50%+ CAGR / Sharpe ~2.4 are obsolete as performance evidence because they were generated before the retrospective ensemble/risk-feature leakage was removed. Do not compare them as valid baselines.
+
+### Latest production signal behavior
+Latest six-stock production run:
+- TCS: NEUTRAL, expected -0.13%, crash 26.9%, anomaly 0.88, confidence 22.1%
+- INFY: NEUTRAL, expected -0.18%, crash 12.2%, anomaly 0.76, confidence 1.4%
+- RELIANCE: UNDERWEIGHT, expected -0.71%, crash 2.0%, anomaly 0.63, confidence 12.3%
+- HDFCBANK: UNDERWEIGHT, expected -0.79%, crash 6.7%, anomaly 0.75, confidence 20.7%
+- ICICIBANK: UNDERWEIGHT, expected -0.82%, crash 0.6%, anomaly 0.96, confidence 10.4%
+- SBIN: UNDERWEIGHT, expected -0.99%, crash 1.9%, anomaly 0.76, confidence 16.2%
+
+Portfolio target weights were all **0.0%**. INFY was excluded by the confidence gate; the remaining names were technically eligible but had no positive decision score. Do not loosen the gate merely to force exposure.
+
+Stress output was cash-only:
+`synthetic_paths=0, horizon=20, cash_only=True`.
+This is a consequence of zero target exposure, not evidence that TimeGAN itself has failed.
+
+### Data-quality state
+NSE raw store:
+- 4,914,061 rows
+- 3,796 tickers
+- 2015-01-01 → 2026-09-25
+- structural raw audit clean for duplicates, missing values, invalid OHLC, nonpositive prices, negative/zero volume.
+
+Corporate-action work:
+- 15,651 corporate-action rows acquired/reconciled for the eligible universe.
+- Composite bonus/split interpretation fixed for cases such as RAMASTEEL.
+- Non-destructive adjusted research frame/store exists.
+- Latest adjusted store build:
+  - raw_rows=4,914,061
+  - parsed_actions=12,530
+  - adjustable_actions=445
+  - adjusted_rows_written=4,914,061
+  - raw_store_unchanged=True
+- Continuity classifier:
+  - gap_runs=808
+  - tickers_with_gaps=327
+  - total_missing_sessions=40,747
+  - jump_candidates=224
+  - exact_action_matches=11
+  - adjustable_action_matches=0
+  - classification: exact_action 11, near_action_and_post_gap 1, post_gap 126, unexplained 86.
+- Do not invent corporate-action adjustments for unexplained jumps. The 86 same-session unexplained jumps remain a direct investigation set; post-gap jumps need separate continuity treatment.
+
+Point-in-time universe audit:
+- Full-period eligible universe: 1,133.
+- Static full-period universe is survivorship-prone and must not be used as historical training/backtest membership.
+- Historical quarterly eligible counts rise from 541 in 2018-04 to 1,104 in 2026-07.
+- Registry currently returns zero eligible before 2018-04 under the current 756-session / 70% coverage / liquidity policy. This is a registry-policy limitation, not evidence that NSE had no securities before 2018.
+- Historical fold-specific universe membership still needs explicit implementation/policy before expanded retraining.
+
+### Remaining methodological blockers
+Before expanded model retraining:
+1. Enforce point-in-time universe membership per historical walk-forward fold.
+2. Audit historical cross-sectional context; current context is based on the supplied/static symbol universe and may be survivor-biased.
+3. Audit external fundamentals/news information availability timestamps. Do not assume publication/fiscal availability from observation dates.
+4. Make crash/regime/anomaly outputs genuinely fold-specific if they are to enter historical ensemble/backtest decisions.
+5. Investigate the 86 unexplained same-session price jumps and symbol-history/corporate-action discontinuities.
+6. Audit calibration separately: current calibrator is fitted on nested OOS predictions, but calibration performance itself is not yet evaluated on a distinct untouched layer.
+7. Replace the current signal-weighted backtest with an evaluation of the actual `PortfolioOptimizer` path once data/model semantics are clean.
+8. Investigate the weak OOS result using diagnostics before hyperparameter tuning:
+   - fold/time-period breakdown
+   - signal coverage / exposure
+   - positive-signal frequency
+   - base-forecaster performance
+   - simple baselines
+   - feature/model ablations
+   - turnover and cost attribution
+   - regime/time-period performance
+9. Only after these diagnostics should expanded retraining be attempted.
+
+### Important benchmark note
+The NIFTY50 benchmark was temporarily all-zero because market dates and Yahoo benchmark dates had different types. This was fixed in `main.py` by normalizing both to pandas datetime before joining. The current 9.2035% CAGR benchmark result is the corrected comparison.
+
+### Exact next resumption point
+When work resumes:
+1. Pull latest `main`.
+2. Read this handover.
+3. Manually audit current `main.py`, `decisions/signals.py`, `backtest/engine.py`, `training/leakage.py`, universe/data-quality modules, and current tests.
+4. Do **not** immediately retrain.
+5. First implement diagnostics for the corrected OOS result, starting with fold-level performance and signal/exposure coverage.
+6. Then compare the nested ensemble against its base forecasters and simple baselines.
+7. Continue point-in-time universe/context/data-availability work in parallel with the diagnosis.
+8. Keep the 3.34% CAGR / 0.286 Sharpe / -39.72% max-DD result as the current research baseline until a methodology change produces a new verified result.
+
+### Working rule
+The project is in **validation/data-correctness + model-diagnosis**, not optimization-for-performance mode. Do not tune thresholds, loosen gates, remove safeguards, or alter evaluation methodology merely to improve the displayed backtest numbers.
