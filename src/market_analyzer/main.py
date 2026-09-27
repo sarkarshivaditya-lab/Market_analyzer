@@ -179,11 +179,10 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     signals["date"]=pd.to_datetime(signals["date"])
     # Historical research backtests must use nested OOS ensemble predictions,
     # not predictions from the final production ensemble fitted on all history.
+    # Historical OOS signals intentionally use only nested OOS ensemble outputs.
+    # Fold-specific crash/regime/anomaly outputs are not yet available, so do not
+    # merge final/latest risk-model predictions into the research backtest.
     oos_decision_frame=nested_ensemble_oos[["date","tic","ensemble_expected_return","positive_return_probability","ensemble_confidence"]].copy()
-    oos_decision_frame=oos_decision_frame.merge(
-        history[["date","tic","crash_probability","regime_probability","anomaly_score","regime_label"]],
-        on=["date","tic"],how="left",
-    )
     oos_signals=build_investment_signals(
         oos_decision_frame,
         pd.DataFrame(columns=["date","tic","crash_probability"]),
