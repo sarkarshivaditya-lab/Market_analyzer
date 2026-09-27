@@ -81,21 +81,39 @@ def apply_backward_adjustments(frame: pd.DataFrame, actions: pd.DataFrame) -> pd
     if missing:
         raise ValueError(f"Missing market columns: {missing}")
     result = frame.copy()
-    result["date"] = pd.to_datetime(result["date"])
+    result["date"] = pd.to_datetime(result["date"], errors="coerce")
     result["tic"] = result["tic"].astype(str).str.strip().str.upper()
     if actions.empty:
         return result.sort_values(["tic", "date"]).reset_index(drop=True)
     usable = actions.dropna(subset=["ex_date", "price_factor"]).copy()
     usable["ex_date"] = pd.to_datetime(usable["ex_date"], errors="coerce")
     usable["price_factor"] = pd.to_numeric(usable["price_factor"], errors="coerce")
+    usable = usable.dropna(subset=["ex_date", "price_factor"])
     usable = usable[usable["price_factor"] > 0]
-    # Apply every eligible action cumulatively. This creates a research-only
-    # adjusted series while leaving the raw source frame untouched.
-    for action in usable.sort_values(["tic", "ex_date"]).itertuples(index=False):
-        mask = (result["tic"] == action.tic) & (result["date"] < pd.Timestamp(action.ex_date))
+    if usable.empty:
+        return result.sort_values(["tic", "date"]).reset_index(drop=True)
+    # Build one cumulative factor per ticker/date instead of scanning the full
+    # market frame once per corporate action. This is important for the ~5M-row
+    # NSE store and preserves the invariant that raw SQLite is never mutated.
+    for tic, action_group in usable.groupby("tic", sort=False):
+        mask = result["tic"].eq(tic)
+        if not mask.any():
+            continue
+        dates = result.loc[mask, "date"].to_numpy(dtype="datetime64[ns]")
+        actions_sorted = action_group.sort_values("ex_date")
+        ex_dates = actions_sorted["ex_date"].to_numpy(dtype="datetime64[ns]")
+        factors = actions_sorted["price_factor"].to_numpy(dtype=float)
+        cumulative = factors[::-1].cumprod()[::-1]
+        positions = ex_dates.searchsorted(dates, side="right")
+        # For a date before the first ex-date, every action contributes. For a
+        # date on/after the latest ex-date, no historical adjustment remains.
+        adjustment = np.ones(len(dates), dtype=float)
+        before = positions < len(cumulative)
+        adjustment[before] = cumulative[positions[before]]
+        idx = result.index[mask]
         for column in ["open", "high", "low", "close"]:
-            result.loc[mask, column] = result.loc[mask, column] * action.price_factor
-        result.loc[mask, "volume"] = result.loc[mask, "volume"] / action.price_factor
+            result.loc[idx, column] = result.loc[idx, column].to_numpy(dtype=float) * adjustment
+        result.loc[idx, "volume"] = result.loc[idx, "volume"].to_numpy(dtype=float) / adjustment
     return result.sort_values(["tic", "date"]).reset_index(drop=True)
 
 
