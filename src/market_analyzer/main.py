@@ -118,13 +118,38 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     history=history.dropna(subset=["ensemble_target"])
     if len(history)<250: raise ValueError("Insufficient out-of-sample history for ensemble training.")
     history=history.sort_values("date").reset_index(drop=True)
-    split=max(100,int(len(history)*0.8))
-    meta_train=history.iloc[:split].copy()
-    calibration_frame=history.iloc[split:].copy()
-    calibrator_model=IntelligenceEnsemble().fit(meta_train,meta_features)
-    calibration_pred=calibrator_model.predict(calibration_frame)
-    calibration_frame=calibration_frame.merge(calibration_pred,on=["date","tic"],how="left")
-    calibrator=ProbabilityCalibrator().fit(calibration_frame["positive_return_probability"],(calibration_frame["ensemble_target"]>0).astype(int))
+
+    # Strictly nested meta-model evaluation: each test fold is predicted by a
+    # meta-model trained only on earlier out-of-sample base predictions.
+    nested_ensemble_parts=[]
+    for window in windows:
+        train_meta=history[history["date"] < window.test_start].copy()
+        test_meta=history[
+            (history["date"] >= window.test_start)
+            & (history["date"] <= window.test_end)
+        ].copy()
+        if len(train_meta) < 200 or test_meta.empty:
+            continue
+        fold_ensemble=IntelligenceEnsemble().fit(train_meta,meta_features)
+        fold_pred=fold_ensemble.predict(test_meta)
+        fold_pred["ensemble_target"]=test_meta.set_index(["date","tic"]).loc[
+            fold_pred.set_index(["date","tic"]).index,"ensemble_target"
+        ].to_numpy()
+        fold_pred["window_test_start"]=window.test_start
+        fold_pred["window_test_end"]=window.test_end
+        nested_ensemble_parts.append(fold_pred)
+
+    if not nested_ensemble_parts:
+        raise ValueError("Insufficient prior OOS history for nested ensemble evaluation.")
+    nested_ensemble_oos=pd.concat(nested_ensemble_parts,ignore_index=True)
+    nested_ensemble_oos=nested_ensemble_oos.drop_duplicates(["date","tic"]).sort_values(["date","tic"]).reset_index(drop=True)
+
+    # Calibration is also strictly historical: fit only on nested OOS
+    # predictions, never on predictions from the final ensemble's training rows.
+    calibrator=ProbabilityCalibrator().fit(
+        nested_ensemble_oos["positive_return_probability"],
+        (nested_ensemble_oos["ensemble_target"]>0).astype(int),
+    )
     ensemble=IntelligenceEnsemble().fit(history,meta_features)
     latest_train_end=windows[-1].train_end
     train=features[dates<=latest_train_end].copy()
@@ -251,7 +276,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     paper=PaperTradingSession.create(capital=100000.0,state_file=state_file)
     paper_result=paper.rebalance(portfolio[["tic","target_weight"]],latest_prices)
     set_state(signals=latest_signal_records.to_dict("records"),portfolio=portfolio.to_dict("records"),brief=brief,backtest=backtest_summary,stress=stress_summary,paper=paper_result,market={"symbols":list(chart_market),"default_symbol":str(portfolio.iloc[0]["tic"]) if len(portfolio) else (list(chart_market)[0] if chart_market else None),"series":chart_market,"regime":regime_rows},performance={"series":performance_records})
-    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"signals":signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"stress":stress_summary,"walk_forward_windows":windows,"dashboard_market":chart_market,"dashboard_performance":performance_records,"dashboard_regime":regime_rows}
+    return {"features":features,"walk_forward_forecasts":forecasts,"ensemble_history":history,"ensemble_oos_predictions":nested_ensemble_oos,"signals":signals,"portfolio":portfolio,"brief":brief,"backtest":backtest,"backtest_summary":backtest_summary,"stress":stress_summary,"walk_forward_windows":windows,"dashboard_market":chart_market,"dashboard_performance":performance_records,"dashboard_regime":regime_rows}
 
 if __name__=="__main__":
     result=run()
