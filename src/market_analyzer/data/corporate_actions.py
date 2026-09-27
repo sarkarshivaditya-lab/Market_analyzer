@@ -108,6 +108,17 @@ def parse_corporate_actions(frame: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def filter_corporate_actions_to_window(
+    actions: pd.DataFrame, start: str, end: str
+) -> pd.DataFrame:
+    """Keep only corporate actions whose ex-date falls in the research window."""
+    result = actions.copy()
+    result["ex_date"] = pd.to_datetime(result["ex_date"], errors="coerce")
+    start_date = pd.Timestamp(start)
+    end_date = pd.Timestamp(end)
+    return result[result["ex_date"].between(start_date, end_date)].copy()
+
+
 def apply_backward_adjustments(frame: pd.DataFrame, actions: pd.DataFrame) -> pd.DataFrame:
     required = ["date", "tic", "open", "high", "low", "close", "volume"]
     missing = [column for column in required if column not in frame.columns]
