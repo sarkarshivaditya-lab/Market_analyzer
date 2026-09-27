@@ -16,7 +16,7 @@ def test_point_in_time_audit_logic_uses_only_rows_on_or_before_as_of():
             "close": 100,
             "volume": 200_000,
         })
-    for day in sessions[8:]:
+    for day in sessions[6:]:
         rows.append({
             "date": day,
             "tic": "LATE",
