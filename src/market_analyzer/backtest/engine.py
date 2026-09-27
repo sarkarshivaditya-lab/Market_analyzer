@@ -3,6 +3,10 @@ import numpy as np
 import pandas as pd
 
 def signal_backtest(signals,prices,transaction_cost_bps=5.0,slippage_bps=2.0):
+    prices=prices.copy()
+    signals=signals.copy()
+    prices["date"]=pd.to_datetime(prices["date"])
+    signals["date"]=pd.to_datetime(signals["date"])
     px=prices.pivot(index="date",columns="tic",values="close").sort_index().ffill()
     score=signals.pivot(index="date",columns="tic",values="decision_score").reindex(px.index).fillna(0.0)
     weights=score.clip(lower=0.0)
