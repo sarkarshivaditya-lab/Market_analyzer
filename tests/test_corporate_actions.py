@@ -5,6 +5,7 @@ from market_analyzer.data.corporate_actions import (
     apply_backward_adjustments,
     parse_corporate_action,
     parse_corporate_actions,
+    build_adjusted_research_frame,
 )
 
 
@@ -52,3 +53,22 @@ def test_ratio_only_split_is_review_only():
     action = parse_corporate_action("ABC", "2026-01-10", "Split 1:5")
     assert action.adjustment_type == "review"
     assert action.price_factor is None
+
+
+def test_adjusted_research_frame_is_non_destructive_and_cumulative():
+    prices = pd.DataFrame([
+        {"date":"2026-01-08","tic":"ABC","open":100.0,"high":105.0,"low":95.0,"close":100.0,"volume":1000},
+        {"date":"2026-01-10","tic":"ABC","open":50.0,"high":52.0,"low":48.0,"close":50.0,"volume":2000},
+        {"date":"2026-01-12","tic":"ABC","open":25.0,"high":26.0,"low":24.0,"close":25.0,"volume":4000},
+    ])
+    original = prices.copy(deep=True)
+    actions = parse_corporate_actions(pd.DataFrame([
+        {"symbol":"ABC","ex_date":"2026-01-10","purpose":"Bonus 1:1"},
+        {"symbol":"ABC","ex_date":"2026-01-12","purpose":"Face Value Split (Sub-Division) - From Rs 2/- Per Share To Re 1/- Per Share"},
+    ]))
+    adjusted = build_adjusted_research_frame(prices, actions)
+    assert prices.equals(original)
+    assert adjusted.loc[adjusted["date"] == "2026-01-08", "close"].iloc[0] == pytest.approx(25.0)
+    assert adjusted.loc[adjusted["date"] == "2026-01-10", "close"].iloc[0] == pytest.approx(25.0)
+    assert adjusted.loc[adjusted["date"] == "2026-01-12", "close"].iloc[0] == pytest.approx(25.0)
+    assert adjusted["price_adjusted"].all()
