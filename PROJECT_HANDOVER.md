@@ -395,3 +395,28 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 - Fixed by normalizing both market and benchmark dates to pandas datetime before the join in `main.py`.
 - Commit: `5d419635af8a9283dcbd65f3bbd1de4736734e46`.
 - The observed OOS strategy metrics from that run (CAGR ~0.03%, Sharpe ~0.08, max DD ~-46.2%) should not yet be treated as the final evidence set until the corrected benchmark comparison is rerun and the remaining data/universe issues are resolved.
+
+
+### First corrected leakage-clean OOS baseline — 2026-09-27
+- Targeted validation: 14 passed.
+- Full `python -m market_analyzer.main` completed successfully.
+- NIFTY50 benchmark comparison is now valid after date normalization.
+- Current nested-OOS research backtest:
+  - CAGR: 3.3399%
+  - volatility: 15.9583%
+  - Sharpe: 0.2861
+  - Sortino: 0.2993
+  - max drawdown: -39.7169%
+  - total turnover: 1311.38
+  - total transaction/slippage cost: 0.91796
+- NIFTY50 over the same comparison period:
+  - total return: 175.63%
+  - CAGR: 9.2035%
+  - volatility: 16.1219%
+  - Sharpe: 0.6274
+  - Sortino: 0.9630
+  - max drawdown: -38.4399%
+- Interpretation: this is the first materially trustworthy performance baseline after removing retrospective final-ensemble/risk-feature contamination. It should replace the earlier 50%+ CAGR / Sharpe ~2.4 figures as the research baseline; those earlier figures were produced by contaminated methodology.
+- Current production signal output is predominantly negative/neutral and the optimizer allocated 0% to all six assets, so the live decision path is currently effectively cash. This is a model/output behavior to investigate, not a reason to alter gates merely to force exposure.
+- Remaining blockers before expanded retraining remain: point-in-time historical universe enforcement, historical cross-sectional context availability, external fundamentals/news timestamps, fold-specific regime/anomaly/crash semantics, residual unexplained/post-gap price jumps and symbol-history handling.
+- Next methodological work should diagnose the weak OOS result with simple baselines, fold/time-period/regime breakdowns, feature/model ablations, and signal/coverage diagnostics before hyperparameter tuning or expanded retraining.
