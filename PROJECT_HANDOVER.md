@@ -298,3 +298,22 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 5. Audit survivorship and symbol-history handling, then perform the leakage audit.
 6. Only after those checks pass, retrain the model stack on the expanded Indian dataset.
 
+
+
+### Point-in-time universe audit result — 2026-09-27
+- The local point-in-time audit was rerun against `data/market/nse_adjusted.sqlite` through 2026-09-27 (market data currently ends 2026-09-25).
+- `full_period_eligible=1,133` under the current registry rules, but this static full-period set must not be used as the historical training universe.
+- Quarterly eligible counts are 0 from 2015-01-01 through 2018-01-01, then 541 at 2018-04-01 and rise gradually to 1,104 by 2026-07-01. This is a registry limitation, not evidence that no NSE securities existed before 2018.
+- Full-period eligible continuity remains imperfect: 327/1,133 eligible tickers have at least one missing expected session, with 40,747 missing sessions total; median 75, p90 297.8, p95 384.7 missing sessions per affected ticker.
+- Retraining remains blocked until the historical-universe policy for 2015-2018 and gap/lookback/label handling are explicit.
+
+### Leakage audit — repository inspection, 2026-09-27
+- The repository has chronological walk-forward splitting with a purge equal to the maximum prediction horizon. This is directionally correct for time-series evaluation.
+- The base return forecaster and crash model restrict training rows so forward target dates also fall on or before the training cutoff, protecting the train boundary from forward-label leakage.
+- Core technical features are predominantly causal rolling calculations. However, features are engineered over the complete frame before walk-forward fitting, so every external/as-of feature source still needs an explicit information-availability audit.
+- A material evaluation weakness exists in `main.py`: walk-forward base predictions are accumulated into `history`, then the ensemble is fitted once on the entire accumulated OOS history. This is not strict nested walk-forward meta-model evaluation. The calibration stage is likewise a single chronological holdout rather than nested fold-by-fold calibration.
+- The historical meta-model frame also does not contain the full crash/regime/anomaly prediction columns even though the ensemble feature selector accepts them when available; this is a feature-availability/design inconsistency to resolve during the evaluation refactor.
+- The calibrator is fitted on a later chronological slice than its meta-model training data, which is preferable to fitting on the same observations, but production calibration still needs an untouched later OOS evaluation or nested calibration protocol.
+- `research/sequence.py` has chronological splitting but operates after sequence construction and does not itself enforce ticker/date boundary isolation; its callers require separate auditing.
+- No random-shuffle cross-validation was found in the inspected core training path. The main remaining leakage risks are nested ensemble/calibration evaluation, point-in-time external data availability, and security-history/cross-sectional handling.
+- Next implementation target: a dedicated leakage audit/report that mechanically checks target end dates, walk-forward boundaries, as-of joins, universe eligibility, and nested ensemble/calibration boundaries. Retraining stays blocked until this audit is clean.
