@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from market_analyzer.backtest.engine import signal_backtest
@@ -15,6 +16,6 @@ def test_signal_backtest_uses_supplied_oos_signal_dates_only():
         {"date":"2026-01-03","tic":"AAA","decision_score":0.0},
     ])
     out = signal_backtest(signals, prices)
-    assert out.loc[pd.Timestamp("2026-01-02"), "return"] == -0.0007
-    assert out.loc[pd.Timestamp("2026-01-03"), "return"] == 0.0993
-    assert out.loc[pd.Timestamp("2026-01-04"), "return"] == 0.0
+    assert np.isclose(out.loc[pd.Timestamp("2026-01-02"), "return"], -0.0007)
+    assert np.isclose(out.loc[pd.Timestamp("2026-01-03"), "return"], 0.0993)
+    assert np.isclose(out.loc[pd.Timestamp("2026-01-04"), "return"], 0.0)
