@@ -38,12 +38,11 @@ def parse_corporate_action(symbol: str, ex_date: str, purpose: str) -> Corporate
         values = re.findall(r"(?:RS\.?\s*)?(\d+(?:\.\d+)?)", purpose_upper)
         if len(values) >= 2:
             old_value, new_value = float(values[-2]), float(values[-1])
-            if old_value > 0 and new_value > 0:
+            if old_value > 0 and new_value > 0 and re.search(r"FACE VALUE|PER SHARE|FROM .* TO", purpose_upper):
                 return CorporateAction(tic, date, purpose, new_value / old_value, "split")
-        ratio = _ratio(purpose_upper)
-        if ratio:
-            old_value, new_value = ratio
-            return CorporateAction(tic, date, purpose, new_value / old_value, "split")
+        # A bare ratio is not sufficient evidence of a price-adjusting split.
+        # Keep ratio-only descriptions review-only unless face-value/share-value
+        # text explicitly establishes the old and new face values.
         return CorporateAction(tic, date, purpose, None, "review")
 
     return CorporateAction(tic, date, purpose, None, "review")
