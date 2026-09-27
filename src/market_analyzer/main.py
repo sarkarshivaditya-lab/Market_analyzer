@@ -208,8 +208,11 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     price_frame=market[["date","tic","close"]].copy()
     backtest=signal_backtest(oos_signals,price_frame,transaction_cost_bps=5.0,slippage_bps=2.0)
     benchmark_market=YahooMarketData(start,end,["^NSEI"]).fetch()
+    benchmark_market["date"]=pd.to_datetime(benchmark_market["date"])
     benchmark_prices=benchmark_market.pivot(index="date",columns="tic",values="close").rename(columns={"^NSEI":"NIFTY50"})
-    price_matrix=market.pivot(index="date",columns="tic",values="close").sort_index().ffill()
+    price_matrix=market.copy()
+    price_matrix["date"]=pd.to_datetime(price_matrix["date"])
+    price_matrix=price_matrix.pivot(index="date",columns="tic",values="close").sort_index().ffill()
     price_matrix=price_matrix.join(benchmark_prices,how="left").ffill()
     comparison=compare_strategy_to_benchmark(backtest["return"],price_matrix,benchmark="NIFTY50")
     backtest_summary={"strategy":performance_metrics(backtest),"benchmark":comparison["benchmark"],"transaction_cost_bps":5.0,"slippage_bps":2.0}
