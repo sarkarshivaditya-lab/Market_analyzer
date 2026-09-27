@@ -378,3 +378,12 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 - Cause: `signal_backtest()` correctly charges 7 bps total transaction cost/slippage for the initial 100% position change, producing `-0.0007) rather than zero. The following day earns 10% gross and pays 7 bps on the exit, producing `0.0993).
 - Test corrected in commit `b13c8c1f1e3bda54932b651e268c6d04fad04baf`.
 - No production backtest logic was changed for this failure.
+
+
+### OOS backtest risk-feature leakage fix — 2026-09-27
+- Main runtime failed because `history` correctly no longer contains `crash_probability`, `regime_probability`, `anomaly_score`, or `regime_label` after the historical meta-feature leakage fix.
+- The previous OOS backtest construction still attempted to merge those columns from `history`; this was stale and invalid.
+- Removed that merge. Historical research signals now use only nested OOS ensemble outputs.
+- `build_investment_signals()` now supplies neutral defaults for missing risk outputs in ensemble-only mode: crash probability 0, regime probability 0.5, anomaly score 0, regime label UNKNOWN.
+- This prevents final/latest risk-model predictions from contaminating the historical OOS backtest.
+- Commits: `7064250` and `0a93cf4`.
