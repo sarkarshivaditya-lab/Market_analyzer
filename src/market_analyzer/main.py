@@ -115,6 +115,12 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     history=forecasts.merge(features,on=["date","tic"],how="left")
     history["ensemble_target"]=IntelligenceEnsemble.target(history,5)
     meta_features=IntelligenceEnsemble.feature_columns(history)
+    # Risk-model outputs are currently produced by a final/latest fit rather than
+    # fold-specific historical fits, so exclude them from historical meta-training.
+    meta_features=[
+        c for c in meta_features
+        if c not in {"crash_probability","regime_probability","anomaly_score"}
+    ]
     history=history.dropna(subset=["ensemble_target"])
     if len(history)<250: raise ValueError("Insufficient out-of-sample history for ensemble training.")
     history["date"]=pd.to_datetime(history["date"])
