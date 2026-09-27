@@ -98,6 +98,14 @@ def main() -> None:
         .to_string()
         if matched["exact_action_match"].any() else "None."
     )
+    print("exact_matches=")
+    exact = matched[matched["exact_action_match"]]
+    print(
+        exact[["tic", "date", "previous_close", "close", "jump_pct", "purpose", "price_factor", "adjustment_type"]]
+        .sort_values("jump_pct", key=lambda values: values.abs(), ascending=False)
+        .to_string(index=False)
+        if not exact.empty else "None."
+    )
     print("largest_unmatched=")
     unmatched = matched[~matched["exact_action_match"]]
     print(
