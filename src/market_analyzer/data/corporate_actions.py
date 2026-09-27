@@ -28,19 +28,40 @@ def parse_corporate_action(symbol: str, ex_date: str, purpose: str) -> Corporate
     tic = str(symbol).strip().upper()
     date = pd.Timestamp(ex_date)
 
-    # Composite NSE descriptions can contain both a bonus and a face-value
-    # split on the same ex-date. Both actions change the per-share price, so
-    # the historical adjustment factor is the product of the two factors.
+    is_split = (
+        "SPLIT" in purpose_upper
+        or "SPLT" in purpose_upper
+        or "SUB-DIVISION" in purpose_upper
+        or "SUBDIVISION" in purpose_upper
+    )
 
+    if "BONUS" in purpose_upper and is_split:
+        ratio = _ratio(purpose_upper)
+        values = re.findall(r"(?:RS\.?\s*)?(\d+(?:\.\d+)?)", purpose_upper)
+        if ratio and len(values) >= 2:
+            old_value, new_value = float(values[-2]), float(values[-1])
+            if old_value > 0 and new_value > 0 and re.search(
+                r"FACE VALUE|PER SHARE|FROM .* TO|FV\s+SPLT|FV\.\s*SPLT",
+                purpose_upper,
+            ):
+                bonus, existing = ratio
+                bonus_factor = existing / (existing + bonus)
+                split_factor = new_value / old_value
+                return CorporateAction(
+                    tic, date, purpose, bonus_factor * split_factor, "bonus"
+                )
 
-    if "SPLIT" in purpose_upper or "SPLT" in purpose_upper or "SUB-DIVISION" in purpose_upper or "SUBDIVISION" in purpose_upper:
+    if is_split:
         values = re.findall(r"(?:RS\.?\s*)?(\d+(?:\.\d+)?)", purpose_upper)
         if len(values) >= 2:
             old_value, new_value = float(values[-2]), float(values[-1])
             if old_value > 0 and new_value > 0 and re.search(
-                r"FACE VALUE|PER SHARE|FROM .* TO|FV\s+SPLT|FV\.\s*SPLT", purpose_upper
+                r"FACE VALUE|PER SHARE|FROM .* TO|FV\s+SPLT|FV\.\s*SPLT",
+                purpose_upper,
             ):
-                return CorporateAction(tic, date, purpose, new_value / old_value, "split")
+                return CorporateAction(
+                    tic, date, purpose, new_value / old_value, "split"
+                )
         return CorporateAction(tic, date, purpose, None, "review")
 
     # NCRPS/CRPS are preference shares issued under a scheme, not additional
@@ -50,18 +71,11 @@ def parse_corporate_action(symbol: str, ex_date: str, purpose: str) -> Corporate
 
     if "BONUS" in purpose_upper:
         ratio = _ratio(purpose_upper)
-        values = re.findall(r"(?:RS\\.?\\s*)?(\\d+(?:\\.\\d+)?)", purpose_upper)
-        split_factor = None
-        if len(values) >= 2:
-            old_value, new_value = float(values[-2]), float(values[-1])
-            if old_value > 0 and new_value > 0 and re.search(
-                r"FACE VALUE|PER SHARE|FROM .* TO|FV\\s+SPLT|FV\\.\\s*SPLT", purpose_upper
-            ):
-                split_factor = new_value / old_value
-        if ratio and split_factor is not None:
+        if ratio:
             bonus, existing = ratio
-            bonus_factor = existing / (existing + bonus)
-            return CorporateAction(tic, date, purpose, bonus_factor * split_factor, "bonus")
+            return CorporateAction(
+                tic, date, purpose, existing / (existing + bonus), "bonus"
+            )
         return CorporateAction(tic, date, purpose, None, "review")
 
     return CorporateAction(tic, date, purpose, None, "review")
