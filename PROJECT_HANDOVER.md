@@ -255,6 +255,21 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 - Current point-in-time universe audit remains an explicit prerequisite for retraining. The full-period static 1,133-symbol registry is useful for screening but must not become the historical training universe without as-of filtering.
 - Expanded model retraining remains blocked.
 
+### Residual-jump diagnostic classifier
+- Added `classify_jump_context()` to `src/market_analyzer/data/quality.py`.
+- The classifier is diagnostic only. It never creates or applies a price-adjustment factor.
+- Each residual jump is classified using:
+  - exact corporate-action date,
+  - nearest corporate action within a bounded calendar window (default 5 days),
+  - number of expected sessions missing between the previous observed ticker date and the jump date.
+- Current classification buckets are `exact_action`, `near_action`, `post_gap`, `near_action_and_post_gap`, and `unexplained`.
+- Added unit tests in `tests/test_quality.py` covering all four diagnostic paths and their key invariants.
+- Updated `scripts/classify_nse_continuity.py` to print the residual-context distribution and top contextualized jumps.
+- Next local validation command:
+  `PYTHONPATH=src pytest tests/test_quality.py tests/test_corporate_actions.py -q`
+- If tests pass, rerun `scripts/classify_nse_continuity.py` against the adjusted store and use the resulting category counts to decide which residuals require external corporate-action/source investigation.
+- Do not automatically add adjustment factors from the new classifications.
+
 ### Immediate next execution
 1. Build a residual-jump classifier that joins the 224 residuals against:
    - exact-date corporate actions,
