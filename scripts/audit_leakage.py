@@ -53,6 +53,7 @@ def main():
         audit_target_end_dates(frame, args.horizon),
         audit_train_target_boundary(
             frame,
+            frame[dates <= (windows[0].train_end if windows else dates.iloc[args.min_train_days - 1])],
             windows[0].train_end if windows else dates.iloc[args.min_train_days - 1],
             args.horizon,
         ),
