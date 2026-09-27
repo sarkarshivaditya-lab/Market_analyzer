@@ -51,17 +51,27 @@ def main():
 
     findings: list[AuditFinding] = [
         audit_target_end_dates(frame, args.horizon),
-        audit_train_target_boundary(
-            frame,
-            frame[dates <= (windows[0].train_end if windows else dates.iloc[args.min_train_days - 1])],
-            windows[0].train_end if windows else dates.iloc[args.min_train_days - 1],
-            args.horizon,
-        ),
         audit_walk_forward_boundaries(windows, args.horizon),
     ]
     if windows:
-        train = frame[dates <= windows[0].train_end]
-        test = frame[(dates >= windows[0].test_start) & (dates <= windows[0].test_end)]
+        window = windows[0]
+        train = frame[dates <= window.train_end].copy()
+        test = frame[(dates >= window.test_start) & (dates <= window.test_end)].copy()
+
+        ordered = train.sort_values(["tic", "date"]).copy()
+        ordered["_target_end"] = ordered.groupby("tic")["date"].shift(-args.horizon)
+        purged_train = ordered[
+            ordered["_target_end"].notna() & (ordered["_target_end"] <= window.train_end)
+        ].drop(columns="_target_end")
+
+        findings.append(
+            audit_train_target_boundary(
+                frame,
+                purged_train,
+                window.train_end,
+                args.horizon,
+            )
+        )
         findings.append(audit_fold_isolation(train, test))
     findings.append(
         audit_asof_availability(
