@@ -371,3 +371,10 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 - Corrected in commit `cd0d1015ffe44d08a96ac4076624945e29f027a6`: `signal_backtest()` now normalizes both price and signal dates with `pd.to_datetime()` at its boundary.
 - This is an engine-level data-contract hardening change; the regression test remains strict about Timestamp-index access.
 - Re-run the same targeted suite before the full application runtime.
+
+
+### OOS backtest regression expectation correction — 2026-09-27
+- The OOS backtest regression then failed on its expected first-day return.
+- Cause: `signal_backtest()` correctly charges 7 bps total transaction cost/slippage for the initial 100% position change, producing `-0.0007) rather than zero. The following day earns 10% gross and pays 7 bps on the exit, producing `0.0993).
+- Test corrected in commit `b13c8c1f1e3bda54932b651e268c6d04fad04baf`.
+- No production backtest logic was changed for this failure.
