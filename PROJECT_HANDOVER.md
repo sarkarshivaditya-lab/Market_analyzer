@@ -317,3 +317,30 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 - `research/sequence.py` has chronological splitting but operates after sequence construction and does not itself enforce ticker/date boundary isolation; its callers require separate auditing.
 - No random-shuffle cross-validation was found in the inspected core training path. The main remaining leakage risks are nested ensemble/calibration evaluation, point-in-time external data availability, and security-history/cross-sectional handling.
 - Next implementation target: a dedicated leakage audit/report that mechanically checks target end dates, walk-forward boundaries, as-of joins, universe eligibility, and nested ensemble/calibration boundaries. Retraining stays blocked until this audit is clean.
+
+
+### Leakage audit implementation update — 2026-09-27
+- Mechanical leakage audit is now clean:
+  - target_end_dates: PASS
+  - walk_forward_boundaries: PASS across 21 chronological windows
+  - train_target_boundary: PASS with explicit horizon purge
+  - fold_isolation: PASS
+  - asof_availability synthetic check: PASS
+- Targeted regression suite is 13/13 passing:
+  `tests/test_leakage_audit.py tests/test_model_leakage.py tests/test_walk_forward.py`.
+- The mechanical audit initially exposed that its own script was testing an intentionally unpurged training slice. The script was corrected to construct the target-safe training subset before auditing the boundary.
+- Production-path inspection then confirmed the substantive nested-evaluation defect in `main.py`: the ensemble was previously fit once on the complete accumulated OOS history, and calibration used a single late holdout.
+- `main.py` has now been changed to strict nested meta-model evaluation:
+  - each walk-forward test fold is predicted by an ensemble trained only on earlier OOS base predictions;
+  - the resulting nested ensemble predictions are retained as `ensemble_oos_predictions`;
+  - the final production ensemble is fit on the full historical OOS base-prediction history only after nested evaluation is generated.
+- Calibration is now fit only on the nested OOS ensemble predictions, rather than on predictions from observations used to fit the final ensemble.
+- Commit: `26100ae38e8ff1974df11d97bd5b3874298441e3` — `enforce nested ensemble and calibration evaluation`.
+- This refactor has not yet been locally runtime-verified. Before proceeding, run the targeted tests plus the full application path.
+- Remaining leakage/data-integrity blockers:
+  1. point-in-time universe enforcement during each historical walk-forward fold;
+  2. cross-sectional context must not be constructed from a current/survivor-only universe for historical folds;
+  3. external fundamentals/news must carry and enforce information-availability timestamps;
+  4. regime/anomaly signals need explicit fold-fit semantics if used as historical meta-features;
+  5. residual unexplained price jumps and post-gap continuity effects still require investigation.
+- Do not retrain the expanded model stack yet.
