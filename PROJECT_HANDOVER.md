@@ -387,3 +387,11 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 - `build_investment_signals()` now supplies neutral defaults for missing risk outputs in ensemble-only mode: crash probability 0, regime probability 0.5, anomaly score 0, regime label UNKNOWN.
 - This prevents final/latest risk-model predictions from contaminating the historical OOS backtest.
 - Commits: `7064250` and `0a93cf4`.
+
+
+### Benchmark comparison bug found — 2026-09-27
+- Latest leakage-clean runtime completed, but benchmark metrics were all zero.
+- Root cause: `market` dates are string-valued while Yahoo NIFTY50 benchmark dates were timestamps; the join therefore produced no overlapping benchmark dates and `compare_strategy_to_benchmark()` converted the resulting missing benchmark returns to zeros.
+- Fixed by normalizing both market and benchmark dates to pandas datetime before the join in `main.py`.
+- Commit: `5d419635af8a9283dcbd65f3bbd1de4736734e46`.
+- The observed OOS strategy metrics from that run (CAGR ~0.03%, Sharpe ~0.08, max DD ~-46.2%) should not yet be treated as the final evidence set until the corrected benchmark comparison is rerun and the remaining data/universe issues are resolved.
