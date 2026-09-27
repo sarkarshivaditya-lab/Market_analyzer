@@ -117,6 +117,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     meta_features=IntelligenceEnsemble.feature_columns(history)
     history=history.dropna(subset=["ensemble_target"])
     if len(history)<250: raise ValueError("Insufficient out-of-sample history for ensemble training.")
+    history["date"]=pd.to_datetime(history["date"])
     history=history.sort_values("date").reset_index(drop=True)
 
     # Strictly nested meta-model evaluation: each test fold is predicted by a
