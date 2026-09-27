@@ -93,3 +93,14 @@ def test_adjusted_research_frame_is_non_destructive_and_cumulative():
     assert adjusted.loc[adjusted["date"] == "2026-01-10", "close"].iloc[0] == pytest.approx(25.0)
     assert adjusted.loc[adjusted["date"] == "2026-01-12", "close"].iloc[0] == pytest.approx(25.0)
     assert adjusted["price_adjusted"].all()
+
+
+def test_actions_in_window_excludes_future_events():
+    from scripts.build_adjusted_nse_store import _actions_in_window
+
+    actions = pd.DataFrame([
+        {"tic": "ABC", "ex_date": "2026-09-25", "price_factor": 0.5},
+        {"tic": "ABC", "ex_date": "2026-10-06", "price_factor": 0.5},
+    ])
+    filtered = _actions_in_window(actions, "2015-01-01", "2026-09-27")
+    assert filtered["ex_date"].dt.strftime("%Y-%m-%d").tolist() == ["2026-09-25"]
