@@ -270,6 +270,21 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 - If tests pass, rerun `scripts/classify_nse_continuity.py` against the adjusted store and use the resulting category counts to decide which residuals require external corporate-action/source investigation.
 - Do not automatically add adjustment factors from the new classifications.
 
+### Residual-jump classification result — 2026-09-27
+- Local validation of the residual-context classifier completed successfully enough to produce the full classification report.
+- Residual candidates remain 224.
+- Classification distribution:
+  - exact_action: 11
+  - near_action_and_post_gap: 1
+  - post_gap: 126
+  - unexplained: 86
+- Therefore 137/224 residuals have some corporate-action relationship in the current diagnostic sense, but only 12 are action-adjacent and only 11 are exact-date matches. The 126 post-gap cases should not be interpreted as corporate actions merely because a large jump occurs when trading resumes.
+- The largest residuals are overwhelmingly post-gap events: VERTOZ +621.66% after 110 missing sessions, MCLEODRUSS +566.67% after 139 missing sessions, OPTIEMUS +261.79% after 114 missing sessions, OLECTRA +234.25% after 122 missing sessions, and MEDICO +225.56% after 116 missing sessions.
+- The 86 unexplained cases are more important for direct data-integrity investigation because they occur without a preceding missing-session run and without a nearby corporate action under the current five-day diagnostic window. Examples include MAJESCO -98.76%, ICICITECH -90.16%, AEGISCHEM -90.11%, IEX -90.09%, ITDCEM -90.06%, JETAIRWAYS +89.88%, and INFIBEAM -89.82%.
+- No new price-adjustment factors should be introduced from this report. The diagnostic establishes where investigation is needed; it does not establish the correct economic adjustment.
+- Next priority is to separate post-gap resumption effects from true data/vendor discontinuities, then investigate the 86 same-session unexplained jumps using source/corporate-action/symbol-history evidence.
+- After residual continuity is sufficiently understood, complete the point-in-time universe audit and leakage review before any expanded retraining.
+
 ### Immediate next execution
 1. Build a residual-jump classifier that joins the 224 residuals against:
    - exact-date corporate actions,
