@@ -237,3 +237,12 @@ The next assistant should not jump directly into parameter tuning or UI work wit
 - Raw SQLite market data has not been mutated by corporate-action processing. This must remain the invariant.
 - Added --universe and --summary-only support to the NSE audit CLI.
 - Expanded retraining remains blocked pending corporate-action reconciliation, adjusted research-series construction, eligible-universe continuity/survivorship checks, and leakage review.
+
+## Goal 1 point-in-time universe audit — 2026-09-27
+- Adjusted research store audit passed structural checks: 4,914,061 rows, 3,796 tickers, zero duplicates/missing values/invalid OHLC/nonpositive prices/negative volume/zero volume.
+- On the 1,133 full-period eligible symbols, the adjusted store contains 2,488,774 rows and 237 price-jump candidates at the existing 1.5x threshold.
+- Eligible-universe continuity currently shows 327 tickers with at least one missing expected session. This is not yet a failure: gaps must be classified by duration, listing/suspension lifecycle, and whether they materially affect model windows.
+- Added scripts/audit_point_in_time_universe.py to quantify quarterly point-in-time eligible-universe counts using eligible_tickers_on(), which filters data at each as-of date and therefore does not use future rows.
+- Added a regression test proving the point-in-time eligibility calculation does not admit a newly listed ticker before it has sufficient history.
+- Immediate next execution: run scripts/audit_point_in_time_universe.py against data/market/nse_adjusted.sqlite, then use its quarterly counts and gap/jump summaries to determine survivorship and continuity risk.
+- Expanded retraining remains blocked until the point-in-time universe and remaining discontinuities are understood.
