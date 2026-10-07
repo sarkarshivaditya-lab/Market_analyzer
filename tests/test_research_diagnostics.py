@@ -29,7 +29,9 @@ def _signals():
 def test_signal_statistics():
     stats = signal_statistics(_signals())
     assert stats["observations"] == 120
-    assert 0 < stats["positive_signal_observations"] < 1
+    assert stats["positive_score_observations"] == 40
+    assert stats["overweight_observations"] == 40
+    assert stats["underweight_observations"] == 80
 
 
 def test_fold_report():
