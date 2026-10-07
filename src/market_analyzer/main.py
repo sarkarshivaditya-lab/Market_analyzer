@@ -103,6 +103,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     context=MarketContextData(breadth_universe=symbols,sector_symbols=symbols).fetch(
         start,end,market_frame=historical_market if provider=="nse_local" else None,
         min_history_sessions=universe_config.min_history_sessions,
+        universe_config=universe_config if provider=="nse_local" else None,
     )
     features=MarketContextData.merge_asof(features,context)
     features=enrich_context(features)
