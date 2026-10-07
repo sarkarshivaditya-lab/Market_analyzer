@@ -1,4 +1,4 @@
-"""Cross-sectional market context built from public market series."""
+"""Cross-sectional market context built from point-in-time market availability."""
 from __future__ import annotations
 import pandas as pd
 from market_analyzer.data.yahoo import YahooMarketData
@@ -9,10 +9,22 @@ class MarketContextData:
     def __init__(self,breadth_universe=None,sector_symbols=None):
         self.breadth_universe=breadth_universe or DEFAULT_BREADTH_UNIVERSE
         self.sector_symbols=sector_symbols or self.breadth_universe
-    def fetch(self,start,end=None):
+    def fetch(self,start,end=None,market_frame=None,min_history_sessions=0):
         end=end or pd.Timestamp.utcnow().strftime("%Y-%m-%d")
-        raw=YahooMarketData(start,end,sorted(set(self.breadth_universe))).fetch()
+        if market_frame is None:
+            raw=YahooMarketData(start,end,sorted(set(self.breadth_universe))).fetch()
+        else:
+            raw=market_frame.copy()
+            raw["date"]=pd.to_datetime(raw["date"])
+            raw=raw[(raw["date"]>=pd.Timestamp(start)) & (raw["date"]<pd.Timestamp(end))].copy()
         raw["date"]=pd.to_datetime(raw["date"])
+        raw["tic"]=raw["tic"].astype("string").str.strip().str.upper()
+        raw["close"]=pd.to_numeric(raw["close"],errors="coerce")
+        raw=raw.dropna(subset=["date","tic","close"])
+        if min_history_sessions>0:
+            raw=raw.sort_values(["tic","date"]).copy()
+            raw["history_sessions"]=raw.groupby("tic").cumcount()+1
+            raw=raw[raw["history_sessions"]>=int(min_history_sessions)].copy()
         prices=raw.pivot_table(index="date",columns="tic",values="close",aggfunc="last").sort_index()
         r1=prices.pct_change(); r5=prices.pct_change(5)
         out=pd.DataFrame(index=prices.index)
