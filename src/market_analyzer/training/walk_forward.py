@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import pandas as pd
-from market_analyzer.data.universe import UniverseConfig, eligible_tickers_on
+from market_analyzer.data.universe import UniverseConfig, eligible_tickers_by_date, eligible_tickers_on
 
 
 @dataclass(frozen=True)
@@ -51,6 +51,7 @@ def split_frame(
     window: WalkForwardWindow,
     universe_frame: pd.DataFrame | None = None,
     universe_config: UniverseConfig | None = None,
+    eligibility_frame: pd.DataFrame | None = None,
 ):
     dates = pd.to_datetime(frame["date"])
     train = frame[(dates >= window.train_start) & (dates <= window.train_end)].copy()
@@ -62,4 +63,17 @@ def split_frame(
         test_tickers = set(eligible_tickers_on(universe_frame, window.test_start, sessions, config))
         train = train[train["tic"].isin(train_tickers)].copy()
         test = test[test["tic"].isin(test_tickers)].copy()
+        # PIT eligibility is date-dependent. A ticker eligible at the fold
+        # boundary must not retroactively appear on dates before it became
+        # eligible. Reuse a precomputed eligibility panel when supplied.
+        eligible = eligibility_frame
+        if eligible is None:
+            eligible = eligible_tickers_by_date(universe_frame, expected_dates=sessions, config=config)
+        eligible = eligible.copy()
+        eligible["date"] = pd.to_datetime(eligible["date"]).dt.normalize()
+        eligible["tic"] = eligible["tic"].astype("string").str.strip().str.upper()
+        train = train.merge(eligible.assign(_pit_eligible=True), on=["date", "tic"], how="inner")
+        test = test.merge(eligible.assign(_pit_eligible=True), on=["date", "tic"], how="inner")
+        train = train.drop(columns=["_pit_eligible"])
+        test = test.drop(columns=["_pit_eligible"])
     return train, test
