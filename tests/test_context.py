@@ -16,3 +16,26 @@ def test_context_features_use_past_history():
     assert "macro_vix_chg_5d" in out and "macro_vix_z_60d" in out
     assert "relative_return_20d_vs_spy" in out
     assert out.iloc[10]["macro_vix_chg_5d"]>0
+
+def test_local_context_does_not_use_future_listings():
+    sessions=pd.date_range("2024-01-01",periods=6,freq="D")
+    rows=[]
+    for day in sessions:
+        rows.append({"date":day,"tic":"OLD","close":100.0+(day-sessions[0]).days})
+    for day in sessions[3:]:
+        rows.append({"date":day,"tic":"LATE","close":200.0})
+    raw=pd.DataFrame(rows)
+    context=MarketContextData(
+        breadth_universe=["OLD","LATE"],
+        sector_symbols=["OLD","LATE"],
+    ).fetch(
+        "2024-01-01","2024-01-06",
+        market_frame=raw,
+        min_history_sessions=3,
+    )
+    early=context[context["date"]<pd.Timestamp("2024-01-04")]
+    assert not early.empty
+    assert early["breadth_pct_positive_1d"].isna().all() or (early["breadth_pct_positive_1d"]<=1.0).all()
+    late=context[context["date"]>=pd.Timestamp("2024-01-04")]
+    assert not late.empty
+    assert late["breadth_pct_positive_1d"].notna().any()
