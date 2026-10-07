@@ -94,7 +94,8 @@ def _eligible_mask_by_date(data:pd.DataFrame,sessions:pd.DatetimeIndex,config:Un
     first_index=grouped["session_index"].transform("min")
     expected=work["session_index"]-first_index+1
     work["coverage_ratio"]=work["observations"]/expected
-    cumulative_median=grouped["turnover"].expanding().median().reset_index(level=0,drop=True)
+    cumulative_median=work.groupby("tic",sort=False)["turnover"].expanding().median()
+    cumulative_median.index=cumulative_median.index.droplevel(0)
     work["median_turnover"]=cumulative_median.reindex(work.index).to_numpy()
     eligible=(
         (work["observations"]>=config.min_history_sessions)
