@@ -9,6 +9,40 @@ Current development branch: research/diagnostics-baselines.
 
 The project is an AI-driven Indian-market financial intelligence and portfolio-decision platform. The objective is a functional, sellable system for investors/banks, not an academic-only model.
 
+## Checkpoint 1 — Final comparative evidence (2026-10-07)
+
+The corrected research report has now been generated after fixing the baseline portfolio-accounting bug. Validation is clean:
+- Dedicated research diagnostics suite: 9 passed in 0.38s.
+- Full regression suite: 126 passed in 6.67s.
+- Reproducible report: scripts/generate_research_report.py.
+- OOS window: 2018-04-26 through 2026-09-29.
+
+Corrected portfolio-path results:
+- ensemble_oos: CAGR 4.2496%, volatility 18.7010%, Sharpe 0.3165, Sortino 0.3927, max drawdown -44.7420%, turnover 1301.0649, cost 0.910745.
+- equal_weight: CAGR 10.0961%, volatility 18.8183%, Sharpe 0.6059, Sortino 0.7744, max drawdown -39.9328%, turnover 386.6929, cost 0.270685.
+- buy_and_hold: CAGR 13.7453%, volatility 18.8156%, Sharpe 0.7793, Sortino 0.9931, max drawdown -39.6224%, turnover 1.0, cost 0.000700.
+- momentum_top3: CAGR -0.5209%, volatility 21.2688%, Sharpe 0.0827, Sortino 0.1012, max drawdown -46.6785%, turnover 1737.3243, cost 1.216127.
+- momentum_top3_vol_scaled: CAGR -2.7039%, volatility 20.8953%, Sharpe -0.0258, Sortino -0.0320, max drawdown -47.9985%, turnover 1910.8355, cost 1.337585.
+- NIFTY50: CAGR 9.6604%, volatility 16.9946%, Sharpe 0.6284, Sortino 0.7606, max drawdown -38.4399%.
+- base_1d: CAGR 10.6770%, volatility 19.3134%, Sharpe 0.6223, Sortino 0.7540, max drawdown -44.1610%, turnover 1380.1861, cost 0.966130.
+- base_5d: CAGR 6.4914%, volatility 20.0308%, Sharpe 0.4145, Sortino 0.5125, max drawdown -45.4199%, turnover 1034.3235, cost 0.724026.
+- base_20d: CAGR 4.0267%, volatility 20.8392%, Sharpe 0.2944, Sortino 0.3485, max drawdown -44.3285%, turnover 677.3652, cost 0.474156.
+
+Predictive metrics for the base forecasters:
+- 1d: 12,510 observations, MAE 0.012548, RMSE 0.018392, directional accuracy 51.3749%.
+- 5d: 12,486 observations, MAE 0.030666, RMSE 0.042953, directional accuracy 51.1373%.
+- 20d: 12,396 observations, MAE 0.065525, RMSE 0.091289, directional accuracy 53.0090%.
+
+Interpretation:
+- The ensemble OOS portfolio proxy does not currently beat NIFTY50, equal-weight, buy-and-hold, or the 1d base forecaster on this OOS window.
+- The 1d base forecaster is currently the strongest model-derived portfolio proxy; the ensemble is materially worse despite being built from the base forecasters.
+- Buy-and-hold is the strongest simple baseline in this report, while equal-weight also beats NIFTY50 on CAGR/Sharpe over this specific window.
+- Momentum baselines are not competitive here, especially after turnover/costs.
+- Predictive directional accuracy is only modestly above 50%, so the current evidence does not justify architecture changes based on headline returns alone.
+- This is diagnostic evidence, not a production performance claim. The ensemble historical path still uses simplified historical risk inputs, and the actual PortfolioOptimizer has not yet been evaluated OOS.
+
+The previous equal-weight/buy-and-hold equality was a genuine accounting bug: both were effectively fixed-weight paths. The corrected implementation now lets equal-weight rebalance as prices drift while buy-and-hold weights drift without rebalancing. Regression tests explicitly cover this distinction.
+
 ## Validation/data methodology status
 
 The historical evaluation path has been made leakage-aware:
