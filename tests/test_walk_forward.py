@@ -73,7 +73,7 @@ def test_split_frame_filters_rows_before_pit_eligibility_date():
     rows = []
     for day in sessions:
         rows.append({"date": day, "tic": "OLD", "close": 100.0})
-    for day in sessions[6:]:
+    for day in sessions[4:]:
         rows.append({"date": day, "tic": "LATE", "close": 100.0})
     frame = pd.DataFrame(rows)
     market = frame.assign(open=100.0, high=101.0, low=99.0, volume=200_000)
