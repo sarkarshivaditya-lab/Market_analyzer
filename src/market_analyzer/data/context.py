@@ -2,6 +2,7 @@
 from __future__ import annotations
 import pandas as pd
 from market_analyzer.data.yahoo import YahooMarketData
+from market_analyzer.data.universe import UniverseConfig, eligible_tickers_by_date
 
 DEFAULT_BREADTH_UNIVERSE=["RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK","SBIN","ITC","LT","BHARTIARTL","AXISBANK"]
 
@@ -9,19 +10,23 @@ class MarketContextData:
     def __init__(self,breadth_universe=None,sector_symbols=None):
         self.breadth_universe=breadth_universe or DEFAULT_BREADTH_UNIVERSE
         self.sector_symbols=sector_symbols or self.breadth_universe
-    def fetch(self,start,end=None,market_frame=None,min_history_sessions=0):
+    def fetch(self,start,end=None,market_frame=None,min_history_sessions=0,universe_config=None):
         end=end or pd.Timestamp.utcnow().strftime("%Y-%m-%d")
         if market_frame is None:
             raw=YahooMarketData(start,end,sorted(set(self.breadth_universe))).fetch()
         else:
             raw=market_frame.copy()
             raw["date"]=pd.to_datetime(raw["date"])
-            raw=raw[(raw["date"]>=pd.Timestamp(start)) & (raw["date"]<pd.Timestamp(end))].copy()
+            raw["tic"]=raw["tic"].astype("string").str.strip().str.upper()
+            config=universe_config or UniverseConfig(min_history_sessions=int(min_history_sessions))
+            eligibility=eligible_tickers_by_date(raw,config=config)
+            raw=raw[(raw["date"]>=pd.Timestamp(start))&(raw["date"]<pd.Timestamp(end))].copy()
+            raw=raw.merge(eligibility,on=["date","tic"],how="inner")
         raw["date"]=pd.to_datetime(raw["date"])
         raw["tic"]=raw["tic"].astype("string").str.strip().str.upper()
         raw["close"]=pd.to_numeric(raw["close"],errors="coerce")
         raw=raw.dropna(subset=["date","tic","close"])
-        if min_history_sessions>0:
+        if market_frame is None and min_history_sessions>0:
             raw=raw.sort_values(["tic","date"]).copy()
             raw["history_sessions"]=raw.groupby("tic").cumcount()+1
             raw=raw[raw["history_sessions"]>=int(min_history_sessions)].copy()
