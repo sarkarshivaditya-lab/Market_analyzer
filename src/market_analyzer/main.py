@@ -125,6 +125,20 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
         train,test=split_frame(features,window,universe_frame=historical_market,universe_config=universe_config)
         base=MultiHorizonForecaster(horizons=horizons).fit(train,usable,train_end=window.train_end)
         pred=base.predict(test)
+        risk_features=[c for c in ["return_1d","return_5d","volatility_20d","drawdown_60d","turbulence"] if c in train.columns]
+        crash=CrashRiskModel(horizon=20,drawdown_threshold=-.10).fit(train,risk_features,train_end=window.train_end)
+        regime_features=[c for c in ["return_1d","return_5d","volatility_20d","drawdown_60d"] if c in train.columns]
+        regime=MarketRegimeModel().fit(train,regime_features)
+        anomaly_features=[c for c in ["return_1d","return_5d","volatility_20d","volume_z_20d","drawdown_60d","turbulence"] if c in train.columns]
+        anomaly=MarketAnomalyDetector().fit(train,anomaly_features)
+        anomaly_history=anomaly.score(features)
+        anomaly_oos=anomaly_history[
+            (pd.to_datetime(anomaly_history["date"])>=window.test_start)
+            &(pd.to_datetime(anomaly_history["date"])<=window.test_end)
+        ].copy()
+        pred=pred.merge(crash.predict(test),on=["date","tic"],how="left")
+        pred=pred.merge(regime.predict(test),on=["date","tic"],how="left")
+        pred=pred.merge(anomaly_oos,on=["date","tic"],how="left")
         pred["window_test_start"]=window.test_start
         pred["window_test_end"]=window.test_end
         oos_parts.append(pred)
@@ -132,13 +146,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     history=forecasts.merge(features,on=["date","tic"],how="left")
     history["ensemble_target"]=IntelligenceEnsemble.target(history,5)
     meta_features=IntelligenceEnsemble.feature_columns(history)
-    # Risk-model outputs are currently produced by a final/latest fit rather than
-    # fold-specific historical fits, so exclude them from historical meta-training.
-    meta_features=[
-        c for c in meta_features
-        if c not in {"crash_probability","regime_probability","anomaly_score"}
-    ]
-    history=history.dropna(subset=["ensemble_target"])
+
     if len(history)<250: raise ValueError("Insufficient out-of-sample history for ensemble training.")
     history["date"]=pd.to_datetime(history["date"])
     history=history.sort_values("date").reset_index(drop=True)
