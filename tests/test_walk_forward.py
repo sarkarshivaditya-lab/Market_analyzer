@@ -64,3 +64,34 @@ def test_split_frame_applies_point_in_time_universe_at_each_fold_cutoff():
     train, test = split_frame(frame, window, universe_frame=market, universe_config=config)
     assert train["tic"].unique().tolist() == ["OLD"]
     assert test["tic"].unique().tolist() == ["OLD", "LATE"]
+
+def test_split_frame_filters_rows_before_pit_eligibility_date():
+    from market_analyzer.data.universe import UniverseConfig
+    from market_analyzer.training.walk_forward import WalkForwardWindow
+
+    sessions = pd.date_range("2020-01-01", periods=12, freq="D")
+    rows = []
+    for day in sessions:
+        rows.append({"date": day, "tic": "OLD", "close": 100.0})
+    for day in sessions[6:]:
+        rows.append({"date": day, "tic": "LATE", "close": 100.0})
+    frame = pd.DataFrame(rows)
+    market = frame.assign(open=100.0, high=101.0, low=99.0, volume=200_000)
+    window = WalkForwardWindow(
+        train_start=sessions[0],
+        train_end=sessions[5],
+        test_start=sessions[6],
+        test_end=sessions[8],
+    )
+    config = UniverseConfig(min_history_sessions=3, min_coverage_ratio=0.70, min_median_turnover=1.0)
+    train, test = split_frame(
+        frame,
+        window,
+        universe_frame=market,
+        universe_config=config,
+    )
+    assert train["date"].min() == sessions[2]
+    assert train["date"].max() == sessions[5]
+    assert train["tic"].unique().tolist() == ["OLD"]
+    assert test["tic"].unique().tolist() == ["LATE"]
+    assert test["date"].min() == sessions[8]
