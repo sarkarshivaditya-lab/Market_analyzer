@@ -41,3 +41,26 @@ def test_macro_merge_does_not_create_tic_rows():
 
 def test_macro_name():
     assert MacroData._name("^TNX") == "tnx"
+
+
+def test_split_frame_applies_point_in_time_universe_at_each_fold_cutoff():
+    from market_analyzer.data.universe import UniverseConfig
+
+    sessions = pd.date_range("2020-01-01", periods=12, freq="D")
+    rows = []
+    for day in sessions:
+        rows.append({"date": day, "tic": "OLD", "close": 100.0})
+    for day in sessions[6:]:
+        rows.append({"date": day, "tic": "LATE", "close": 100.0})
+    frame = pd.DataFrame(rows)
+    window = WalkForwardWindow(
+        train_start=sessions[0],
+        train_end=sessions[5],
+        test_start=sessions[6],
+        test_end=sessions[8],
+    )
+    config = UniverseConfig(min_history_sessions=6, min_coverage_ratio=0.70, min_median_turnover=1.0)
+    market = frame.assign(open=100.0, high=101.0, low=99.0, volume=200_000)
+    train, test = split_frame(frame, window, universe_frame=market, universe_config=config)
+    assert train["tic"].unique().tolist() == ["OLD"]
+    assert test["tic"].unique().tolist() == ["OLD", "LATE"]
