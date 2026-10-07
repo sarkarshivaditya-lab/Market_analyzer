@@ -16,23 +16,28 @@ def signal_statistics(signals: pd.DataFrame) -> dict[str, object]:
             "observations": 0,
             "dates": 0,
             "tickers": 0,
-            "positive_signal_observations": 0.0,
-            "positive_signal_dates": 0.0,
+            "positive_score_observations": 0.0,
+            "positive_score_dates": 0.0,
+            "overweight_observations": 0.0,
+            "overweight_dates": 0.0,
             "neutral_observations": 0.0,
-            "negative_observations": 0.0,
+            "underweight_observations": 0.0,
         }
     data = signals.copy()
     data["date"] = pd.to_datetime(data["date"])
     score = pd.to_numeric(data["decision_score"], errors="coerce").fillna(0.0)
     by_date = data.groupby("date")["decision_score"].max().fillna(0.0)
+    signal = data.get("signal", pd.Series("NEUTRAL", index=data.index)).fillna("NEUTRAL")
     return {
         "observations": int(len(data)),
         "dates": int(data["date"].nunique()),
         "tickers": int(data["tic"].nunique()),
-        "positive_signal_observations": float((score > 0).mean()),
-        "positive_signal_dates": float((by_date > 0).mean()),
-        "neutral_observations": float((score == 0).mean()),
-        "negative_observations": float((score < 0).mean()),
+        "positive_score_observations": float((score > 0).mean()),
+        "positive_score_dates": float((by_date > 0).mean()),
+        "overweight_observations": float((signal == "OVERWEIGHT").mean()),
+        "overweight_dates": float(data.assign(_overweight=signal == "OVERWEIGHT").groupby("date")["_overweight"].any().mean()),
+        "neutral_observations": float((signal == "NEUTRAL").mean()),
+        "underweight_observations": float((signal == "UNDERWEIGHT").mean()),
     }
 
 
@@ -113,21 +118,30 @@ def fold_report(backtest: pd.DataFrame, benchmark_returns: pd.Series, fold_size:
     return pd.DataFrame(rows)
 
 
+def _future_return_frame(prices: pd.DataFrame, horizon: int) -> pd.DataFrame:
+    px = prices.copy()
+    px["date"] = pd.to_datetime(px["date"])
+    close = px.sort_values(["tic", "date"]).copy()
+    close["future_return"] = close.groupby("tic")["close"].shift(-horizon) / close["close"] - 1.0
+    return close[["date", "tic", "future_return"]]
+
+
 def base_forecaster_report(base_forecasts: pd.DataFrame, prices: pd.DataFrame, horizon: int = 5) -> pd.DataFrame:
     if base_forecasts.empty:
         return pd.DataFrame()
     data = base_forecasts.copy()
     data["date"] = pd.to_datetime(data["date"])
-    px = prices.copy()
-    px["date"] = pd.to_datetime(px["date"])
-    close = px.sort_values(["tic", "date"]).copy()
-    close["future_return"] = close.groupby("tic")["close"].shift(-horizon) / close["close"] - 1.0
-    data = data.merge(close[["date", "tic", "future_return"]], on=["date", "tic"], how="left")
     rows = []
     for hcol in sorted([c for c in data.columns if c.startswith("expected_return_")]):
-        h = hcol.removeprefix("expected_return_")
-        pred = pd.to_numeric(data[hcol], errors="coerce")
-        y = pd.to_numeric(data["future_return"], errors="coerce")
+        h_text = hcol.removeprefix("expected_return_").removesuffix("d")
+        try:
+            h = int(h_text)
+        except ValueError:
+            h = horizon
+        realized = _future_return_frame(prices, h)
+        merged = data[["date", "tic", hcol]].merge(realized, on=["date", "tic"], how="left")
+        pred = pd.to_numeric(merged[hcol], errors="coerce")
+        y = pd.to_numeric(merged["future_return"], errors="coerce")
         mask = pred.notna() & y.notna()
         if not mask.any():
             continue
