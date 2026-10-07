@@ -59,7 +59,7 @@ def test_split_frame_applies_point_in_time_universe_at_each_fold_cutoff():
         test_start=sessions[6],
         test_end=sessions[8],
     )
-    config = UniverseConfig(min_history_sessions=6, min_coverage_ratio=0.70, min_median_turnover=1.0)
+    config = UniverseConfig(min_history_sessions=1, min_coverage_ratio=0.70, min_median_turnover=1.0)
     market = frame.assign(open=100.0, high=101.0, low=99.0, volume=200_000)
     train, test = split_frame(frame, window, universe_frame=market, universe_config=config)
     assert train["tic"].unique().tolist() == ["OLD"]
