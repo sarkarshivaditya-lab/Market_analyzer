@@ -23,15 +23,16 @@ def _signals():
     p = _prices()
     out = p[["date", "tic"]].copy()
     out["decision_score"] = np.where(out["tic"].eq("A"), 0.01, -0.01)
+    out["signal"] = np.where(out["tic"].eq("A"), "OVERWEIGHT", "UNDERWEIGHT")
     return out
 
 
 def test_signal_statistics():
     stats = signal_statistics(_signals())
     assert stats["observations"] == 120
-    assert stats["positive_score_observations"] == 40
-    assert stats["overweight_observations"] == 40
-    assert stats["underweight_observations"] == 80
+    assert stats["positive_score_observations"] == 1 / 3
+    assert stats["overweight_observations"] == 1 / 3
+    assert stats["underweight_observations"] == 2 / 3
 
 
 def test_fold_report():
