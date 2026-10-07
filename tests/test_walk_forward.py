@@ -1,7 +1,7 @@
 import pandas as pd
 
 from market_analyzer.data.macro import MacroData
-from market_analyzer.training.walk_forward import walk_forward_windows
+from market_analyzer.training.walk_forward import WalkForwardWindow, split_frame, walk_forward_windows
 
 
 def test_walk_forward_purges_horizon():
@@ -41,3 +41,59 @@ def test_macro_merge_does_not_create_tic_rows():
 
 def test_macro_name():
     assert MacroData._name("^TNX") == "tnx"
+
+
+def test_split_frame_applies_point_in_time_universe_at_each_fold_cutoff():
+    from market_analyzer.data.universe import UniverseConfig
+
+    sessions = pd.date_range("2020-01-01", periods=12, freq="D")
+    rows = []
+    for day in sessions:
+        rows.append({"date": day, "tic": "OLD", "close": 100.0})
+    for day in sessions[6:]:
+        rows.append({"date": day, "tic": "LATE", "close": 100.0})
+    frame = pd.DataFrame(rows)
+    window = WalkForwardWindow(
+        train_start=sessions[0],
+        train_end=sessions[5],
+        test_start=sessions[6],
+        test_end=sessions[8],
+    )
+    config = UniverseConfig(min_history_sessions=1, min_coverage_ratio=0.70, min_median_turnover=1.0)
+    market = frame.assign(open=100.0, high=101.0, low=99.0, volume=200_000)
+    train, test = split_frame(frame, window, universe_frame=market, universe_config=config)
+    assert train["tic"].unique().tolist() == ["OLD"]
+    assert test["tic"].unique().tolist() == ["OLD", "LATE"]
+
+def test_split_frame_filters_rows_before_pit_eligibility_date():
+    from market_analyzer.data.universe import UniverseConfig
+    from market_analyzer.training.walk_forward import WalkForwardWindow
+
+    sessions = pd.date_range("2020-01-01", periods=12, freq="D")
+    rows = []
+    for day in sessions:
+        rows.append({"date": day, "tic": "OLD", "close": 100.0})
+    for day in sessions[4:]:
+        rows.append({"date": day, "tic": "LATE", "close": 100.0})
+    frame = pd.DataFrame(rows)
+    market = frame.assign(open=100.0, high=101.0, low=99.0, volume=200_000)
+    window = WalkForwardWindow(
+        train_start=sessions[0],
+        train_end=sessions[5],
+        test_start=sessions[6],
+        test_end=sessions[8],
+    )
+    config = UniverseConfig(min_history_sessions=3, min_coverage_ratio=0.70, min_median_turnover=1.0)
+    train, test = split_frame(
+        frame,
+        window,
+        universe_frame=market,
+        universe_config=config,
+    )
+    assert train["date"].min() == sessions[2]
+    assert train["date"].max() == sessions[5]
+    assert train["tic"].unique().tolist() == ["OLD"]
+    assert test["tic"].unique().tolist() == ["OLD", "LATE"]
+    late_test = test.loc[test["tic"] == "LATE"]
+    assert late_test["date"].min() == sessions[6]
+    assert late_test["date"].max() == sessions[8]

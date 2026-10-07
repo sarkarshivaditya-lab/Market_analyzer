@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import pandas as pd
+from market_analyzer.data.universe import UniverseConfig, eligible_tickers_by_date, eligible_tickers_on
 
 
 @dataclass(frozen=True)
@@ -45,8 +46,36 @@ def walk_forward_windows(
         train_end_idx += step_days
 
 
-def split_frame(frame: pd.DataFrame, window: WalkForwardWindow):
+def split_frame(
+    frame: pd.DataFrame,
+    window: WalkForwardWindow,
+    universe_frame: pd.DataFrame | None = None,
+    universe_config: UniverseConfig | None = None,
+    eligibility_frame: pd.DataFrame | None = None,
+):
     dates = pd.to_datetime(frame["date"])
     train = frame[(dates >= window.train_start) & (dates <= window.train_end)].copy()
     test = frame[(dates >= window.test_start) & (dates <= window.test_end)].copy()
+    train["date"] = pd.to_datetime(train["date"]).dt.normalize()
+    test["date"] = pd.to_datetime(test["date"]).dt.normalize()
+    if universe_frame is not None:
+        config = universe_config or UniverseConfig()
+        sessions = pd.DatetimeIndex(pd.to_datetime(universe_frame["date"])).normalize().unique().sort_values()
+        train_tickers = set(eligible_tickers_on(universe_frame, window.train_end, sessions, config))
+        test_tickers = set(eligible_tickers_on(universe_frame, window.test_start, sessions, config))
+        train = train[train["tic"].isin(train_tickers)].copy()
+        test = test[test["tic"].isin(test_tickers)].copy()
+        # PIT eligibility is date-dependent. A ticker eligible at the fold
+        # boundary must not retroactively appear on dates before it became
+        # eligible. Reuse a precomputed eligibility panel when supplied.
+        eligible = eligibility_frame
+        if eligible is None:
+            eligible = eligible_tickers_by_date(universe_frame, expected_dates=sessions, config=config)
+        eligible = eligible.copy()
+        eligible["date"] = pd.to_datetime(eligible["date"]).dt.normalize()
+        eligible["tic"] = eligible["tic"].astype("string").str.strip().str.upper()
+        train = train.merge(eligible.assign(_pit_eligible=True), on=["date", "tic"], how="inner")
+        test = test.merge(eligible.assign(_pit_eligible=True), on=["date", "tic"], how="inner")
+        train = train.drop(columns=["_pit_eligible"])
+        test = test.drop(columns=["_pit_eligible"])
     return train, test

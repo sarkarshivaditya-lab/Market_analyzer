@@ -1,7 +1,8 @@
-"""Cross-sectional market context built from public market series."""
+"""Cross-sectional market context built from point-in-time market availability."""
 from __future__ import annotations
 import pandas as pd
 from market_analyzer.data.yahoo import YahooMarketData
+from market_analyzer.data.universe import UniverseConfig, eligible_tickers_by_date
 
 DEFAULT_BREADTH_UNIVERSE=["RELIANCE","TCS","INFY","HDFCBANK","ICICIBANK","SBIN","ITC","LT","BHARTIARTL","AXISBANK"]
 
@@ -9,15 +10,35 @@ class MarketContextData:
     def __init__(self,breadth_universe=None,sector_symbols=None):
         self.breadth_universe=breadth_universe or DEFAULT_BREADTH_UNIVERSE
         self.sector_symbols=sector_symbols or self.breadth_universe
-    def fetch(self,start,end=None):
+    def fetch(self,start,end=None,market_frame=None,min_history_sessions=0,universe_config=None):
         end=end or pd.Timestamp.utcnow().strftime("%Y-%m-%d")
-        raw=YahooMarketData(start,end,sorted(set(self.breadth_universe))).fetch()
+        if market_frame is None:
+            raw=YahooMarketData(start,end,sorted(set(self.breadth_universe))).fetch()
+        else:
+            raw=market_frame.copy()
+            raw["date"]=pd.to_datetime(raw["date"])
+            raw["tic"]=raw["tic"].astype("string").str.strip().str.upper()
+            config=universe_config or UniverseConfig(min_history_sessions=int(min_history_sessions))
+            eligibility=eligible_tickers_by_date(raw,config=config)
+            raw=raw[(raw["date"]>=pd.Timestamp(start))&(raw["date"]<pd.Timestamp(end))].copy()
         raw["date"]=pd.to_datetime(raw["date"])
+        raw["tic"]=raw["tic"].astype("string").str.strip().str.upper()
+        raw["close"]=pd.to_numeric(raw["close"],errors="coerce")
+        raw=raw.dropna(subset=["date","tic","close"])
+        if market_frame is None and min_history_sessions>0:
+            raw=raw.sort_values(["tic","date"]).copy()
+            raw["history_sessions"]=raw.groupby("tic").cumcount()+1
+            raw=raw[raw["history_sessions"]>=int(min_history_sessions)].copy()
         prices=raw.pivot_table(index="date",columns="tic",values="close",aggfunc="last").sort_index()
         r1=prices.pct_change(); r5=prices.pct_change(5)
+        if market_frame is not None:
+            eligible_mask=eligibility.assign(eligible=True).pivot_table(index="date",columns="tic",values="eligible",aggfunc="max",fill_value=False)
+            eligible_mask=eligible_mask.reindex(index=prices.index,columns=prices.columns,fill_value=False).fillna(False)
+            r1=r1.where(eligible_mask)
+            r5=r5.where(eligible_mask)
         out=pd.DataFrame(index=prices.index)
-        out["breadth_pct_positive_1d"]=(r1>0).mean(axis=1)
-        out["breadth_pct_positive_5d"]=(r5>0).mean(axis=1)
+        out["breadth_pct_positive_1d"]=r1.gt(0).sum(axis=1).div(r1.notna().sum(axis=1)).replace([float("inf"),-float("inf")],pd.NA).fillna(0.0)
+        out["breadth_pct_positive_5d"]=r5.gt(0).sum(axis=1).div(r5.notna().sum(axis=1)).replace([float("inf"),-float("inf")],pd.NA).fillna(0.0)
         out["breadth_median_return_1d"]=r1.median(axis=1)
         out["breadth_median_return_5d"]=r5.median(axis=1)
         out["market_return_dispersion_1d"]=r1.std(axis=1)
