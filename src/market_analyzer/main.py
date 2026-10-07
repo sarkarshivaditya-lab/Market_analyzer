@@ -83,11 +83,27 @@ def _resolve_symbols(symbols, start, end):
 
 def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_days=756,test_days=21,fundamental_snapshots=None,news_items=None):
     symbols=_resolve_symbols(symbols,start,end)
-    market=load_market_data(symbols,start,end)
+    provider=os.getenv("MARKET_ANALYZER_MARKET_DATA_PROVIDER","yahoo").strip().lower()
+    universe_mode=os.getenv("MARKET_ANALYZER_UNIVERSE","default").strip().lower()
+    universe_config=UniverseConfig(
+        min_history_sessions=int(os.getenv("MARKET_ANALYZER_MIN_HISTORY_SESSIONS","756")),
+        min_coverage_ratio=float(os.getenv("MARKET_ANALYZER_MIN_COVERAGE_RATIO","0.70")),
+        min_median_turnover=float(os.getenv("MARKET_ANALYZER_MIN_MEDIAN_TURNOVER","10000000")),
+    )
+    if provider=="nse_local" and universe_mode=="registry" and symbols:
+        store_path=os.getenv("MARKET_ANALYZER_NSE_STORE_PATH","data/market/nse.sqlite")
+        historical_market=NSELocalMarketStore(store_path).load(start or "2015-01-01",end or pd.Timestamp.utcnow().strftime("%Y-%m-%d"))
+        market=historical_market
+    else:
+        market=load_market_data(symbols,start,end)
+        historical_market=market
     MarketData.validate(market)
     macro=MacroData().fetch(start,end)
     features=MacroData.merge_asof(market,macro)
-    context=MarketContextData(breadth_universe=symbols,sector_symbols=symbols).fetch(start,end)
+    context=MarketContextData(breadth_universe=symbols,sector_symbols=symbols).fetch(
+        start,end,market_frame=historical_market if provider=="nse_local" else None,
+        min_history_sessions=universe_config.min_history_sessions,
+    )
     features=MarketContextData.merge_asof(features,context)
     features=enrich_context(features)
     if fundamental_snapshots:
@@ -105,7 +121,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     if not windows: raise ValueError("Not enough history for the requested walk-forward configuration.")
     oos_parts=[]
     for window in windows:
-        train,test=split_frame(features,window,universe_frame=features)
+        train,test=split_frame(features,window,universe_frame=historical_market,universe_config=universe_config)
         base=MultiHorizonForecaster(horizons=horizons).fit(train,usable,train_end=window.train_end)
         pred=base.predict(test)
         pred["window_test_start"]=window.test_start
@@ -159,7 +175,8 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     )
     ensemble=IntelligenceEnsemble().fit(history,meta_features)
     latest_train_end=windows[-1].train_end
-    train=features[dates<=latest_train_end].copy()
+    latest_train_universe=set(eligible_tickers_on(historical_market,latest_train_end,pd.DatetimeIndex(pd.to_datetime(historical_market["date"])).normalize().unique().sort_values(),universe_config))
+    train=features[(dates<=latest_train_end) & features["tic"].isin(latest_train_universe)].copy()
     base_current=MultiHorizonForecaster(horizons=horizons).fit(train,usable,train_end=latest_train_end)
     current_base=base_current.predict(features)
     crash=CrashRiskModel(horizon=20,drawdown_threshold=-.10).fit(train,usable,train_end=latest_train_end)
@@ -191,6 +208,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     )
     oos_signals["date"]=pd.to_datetime(oos_signals["date"])
     latest=signals.sort_values("date").groupby("tic",as_index=False).tail(1).set_index("tic")
+    latest=latest[latest.index.isin(symbols)]
     min_confidence=float(os.getenv("MARKET_ANALYZER_MIN_PORTFOLIO_CONFIDENCE","0.05"))
     max_crash_probability=float(os.getenv("MARKET_ANALYZER_MAX_PORTFOLIO_CRASH","0.50"))
     latest=apply_portfolio_gate(latest,min_confidence=min_confidence,max_crash_probability=max_crash_probability)
@@ -220,7 +238,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     chart_market={}
     chart_source=market.copy()
     chart_source["date"]=pd.to_datetime(chart_source["date"])
-    for tic,group in chart_source.groupby("tic"):
+    for tic,group in chart_source[chart_source["tic"].isin(symbols)].groupby("tic"):
         frame=group.sort_values("date").copy()
         frame["sma20"]=frame["close"].rolling(20).mean()
         frame["sma50"]=frame["close"].rolling(50).mean()
