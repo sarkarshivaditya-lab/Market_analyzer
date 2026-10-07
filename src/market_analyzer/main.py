@@ -105,7 +105,7 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     if not windows: raise ValueError("Not enough history for the requested walk-forward configuration.")
     oos_parts=[]
     for window in windows:
-        train,test=split_frame(features,window)
+        train,test=split_frame(features,window,universe_frame=features)
         base=MultiHorizonForecaster(horizons=horizons).fit(train,usable,train_end=window.train_end)
         pred=base.predict(test)
         pred["window_test_start"]=window.test_start
