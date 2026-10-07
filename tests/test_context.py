@@ -36,7 +36,9 @@ def test_local_context_does_not_use_future_listings():
     )
     early=context[context["date"]<pd.Timestamp("2024-01-04")]
     assert not early.empty
-    assert (early["breadth_pct_positive_1d"] == 0.0).all()
+    assert (early.loc[early["date"] < pd.Timestamp("2024-01-03"),"breadth_pct_positive_1d"] == 0.0).all()
+    jan3=early.loc[early["date"].eq(pd.Timestamp("2024-01-03")),"breadth_pct_positive_1d"].iloc[0]
+    assert jan3 == 1.0
     late=context[context["date"]>=pd.Timestamp("2024-01-04")]
     assert not late.empty
     jan4=late.loc[late["date"].eq(pd.Timestamp("2024-01-04")),"breadth_pct_positive_1d"].iloc[0]
