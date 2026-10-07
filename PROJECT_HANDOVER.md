@@ -240,3 +240,16 @@ Required validation after pulling:
 - Then run the broader regression suite before generating a new research report.
 
 Do not retrain the expanded dataset yet.
+
+## Checkpoint 3 validation — clean regression gate (2026-10-08)
+
+The Checkpoint 3 implementation has now been validated locally after the context regression expectation was corrected:
+- Targeted PIT/context/universe/audit suite: **13 passed in 0.36s**.
+- Full project regression suite: **128 passed in 5.26s**.
+- No known regression remains from the full NSE historical research panel, PIT fold filtering, local point-in-time context, or Ponytail engineering rules.
+
+Checkpoint 3 is therefore a clean implementation/testing checkpoint.
+
+The remaining methodological gap is unchanged: local cross-sectional context currently applies point-in-time history availability, but does not yet apply the complete historical liquidity/coverage eligibility rule to each context observation. Expanded retraining remains blocked until this is resolved, along with the separate fundamentals/news causality and fold-specific crash/regime/anomaly requirements.
+
+Next work should tighten the historical context methodology and validate it before any model architecture changes or expanded retraining.
