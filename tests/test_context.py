@@ -40,3 +40,23 @@ def test_local_context_does_not_use_future_listings():
     assert not late.empty
     jan4=late.loc[late["date"].eq(pd.Timestamp("2024-01-04")),"breadth_pct_positive_1d"].iloc[0]
     assert jan4 == 1.0
+
+def test_local_context_applies_point_in_time_liquidity_eligibility():
+    sessions=pd.date_range("2024-01-01",periods=5,freq="D")
+    rows=[]
+    for i,day in enumerate(sessions):
+        rows.append({"date":day,"tic":"LIQUID","open":100+i,"high":101+i,"low":99+i,"close":100+i,"volume":100000})
+        rows.append({"date":day,"tic":"ILLIQUID","open":100-i,"high":101-i,"low":99-i,"close":100-i,"volume":1000})
+    raw=pd.DataFrame(rows)
+    config=__import__("market_analyzer.data.universe",fromlist=["UniverseConfig"]).UniverseConfig(
+        min_history_sessions=3,
+        min_coverage_ratio=0.70,
+        min_median_turnover=5_000_000,
+    )
+    context=MarketContextData(
+        breadth_universe=["LIQUID","ILLIQUID"],
+        sector_symbols=["LIQUID","ILLIQUID"],
+    ).fetch("2024-01-01","2024-01-06",market_frame=raw,universe_config=config)
+    day3=context.loc[context["date"].eq(pd.Timestamp("2024-01-03"))].iloc[0]
+    assert day3["breadth_pct_positive_1d"]==1.0
+    assert day3["breadth_median_return_1d"]>0
