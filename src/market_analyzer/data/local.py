@@ -74,6 +74,12 @@ class NSELocalMarketStore:
         with self._connect() as conn:
             return pd.read_sql_query(query, conn, params=params)
 
+    def tickers(self) -> list[str]:
+        """Return every security represented in the local store."""
+        with self._connect() as conn:
+            rows = conn.execute("SELECT DISTINCT tic FROM daily_ohlcv ORDER BY tic").fetchall()
+        return [str(row[0]) for row in rows]
+
     def coverage(self, tickers: list[str] | None = None) -> pd.DataFrame:
         query = "SELECT tic,MIN(date) AS first_date,MAX(date) AS last_date,COUNT(*) AS rows FROM daily_ohlcv"
         params: list[object] = []
