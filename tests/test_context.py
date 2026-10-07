@@ -35,7 +35,8 @@ def test_local_context_does_not_use_future_listings():
     )
     early=context[context["date"]<pd.Timestamp("2024-01-04")]
     assert not early.empty
-    assert early["breadth_pct_positive_1d"].isna().all() or (early["breadth_pct_positive_1d"]<=1.0).all()
+    assert early["breadth_pct_positive_1d"].isna().all()
     late=context[context["date"]>=pd.Timestamp("2024-01-04")]
     assert not late.empty
-    assert late["breadth_pct_positive_1d"].notna().any()
+    jan4=late.loc[late["date"].eq(pd.Timestamp("2024-01-04")),"breadth_pct_positive_1d"].iloc[0]
+    assert jan4 == 1.0
