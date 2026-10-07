@@ -22,9 +22,9 @@ def test_local_context_does_not_use_future_listings():
     sessions=pd.date_range("2024-01-01",periods=6,freq="D")
     rows=[]
     for day in sessions:
-        rows.append({"date":day,"tic":"OLD","close":100.0+(day-sessions[0]).days})
+        rows.append({"date":day,"tic":"OLD","open":100.0,"high":101.0,"low":99.0,"close":100.0+(day-sessions[0]).days,"volume":100000})
     for day in sessions[3:]:
-        rows.append({"date":day,"tic":"LATE","close":200.0})
+        rows.append({"date":day,"tic":"LATE","open":200.0,"high":201.0,"low":199.0,"close":200.0,"volume":100000})
     raw=pd.DataFrame(rows)
     context=MarketContextData(
         breadth_universe=["OLD","LATE"],
