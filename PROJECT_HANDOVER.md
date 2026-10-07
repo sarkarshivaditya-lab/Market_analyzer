@@ -46,6 +46,9 @@ Transparent baseline helpers now provide:
 - top-N momentum
 - momentum with inverse-volatility scaling
 - baseline metric reporting
+- a true fixed-weight buy-and-hold path with turnover only on initial establishment
+
+Important baseline interpretation: the generic buy-and-hold helper is a fixed-weight basket path. It must not be described as a NIFTY50 buy-and-hold benchmark unless its input is explicitly a NIFTY50 benchmark/constituent series. NIFTY50 benchmark returns remain separately sourced and date-aligned in the research path.
 
 The backtest research helper benchmark default is now NIFTY50 rather than SPY, matching the Indian product.
 
@@ -76,6 +79,13 @@ The latest local diagnostic showed:
 - consecutive-day score and weight Pearson correlations were reported as 1.0 for every stock
 
 Interpretation: raw model outputs are comparatively smooth; the high turnover is materially driven by the discontinuous positive-score normalization and should not yet be attributed to unstable forecasting alone.
+
+### Validation completed
+- Dedicated diagnostics suite: 7 passed in 0.18s.
+- Full regression suite: 124 passed in 5.40s.
+- Test environment: Python 3.14 with third-party pytest plugin autoload disabled.
+- Latest validation commits on this branch include the corrected horizon/signal semantics, true buy-and-hold behavior, and regression tests for both.
+- Working-tree policy remains unchanged: local `data/` is intentionally untracked and must not be committed.
 
 ### Important correction
 The earlier 3.3399% CAGR / 0.2861 Sharpe / -39.7169% max-DD figure was a leakage-clean baseline but used a date scope that included observations outside the actual nested-OOS signal availability window. The 7.3875% result above is a diagnostic OOS-window calculation using the nested OOS signals. It is still a signal-weighted research proxy, not the final optimizer evaluation.
@@ -135,13 +145,11 @@ Dashboard: FastAPI server-rendered workstation with persisted chart-ready state.
 - Every material model change requires regression coverage and OOS comparison.
 
 ## Exact resumption point
-The development branch contains Checkpoint 1 research diagnostics/baseline code. Before merging to main:
-1. Run the targeted research tests.
-2. Run the full suite with third-party pytest autoload disabled in the current Python 3.14 environment.
-3. Run the current application path.
-4. Generate the actual six-stock OOS diagnostic report from nested OOS predictions.
-5. Compare ensemble/base forecasters and transparent baselines on identical dates.
-6. Commit/update this handover with verified test/runtime numbers.
-7. Then continue to point-in-time universe/context implementation.
+The development branch contains Checkpoint 1 research diagnostics/baseline code and has passed its targeted and full regression suites. Before merging to main:
+1. Run the current application path again after the final branch state.
+2. Generate the actual six-stock OOS diagnostic report from nested OOS predictions.
+3. Compare ensemble/base forecasters and transparent baselines on identical OOS dates.
+4. Record the resulting comparative evidence in this handover.
+5. Then continue to point-in-time universe/context implementation.
 
 Do not retrain the expanded dataset yet.
