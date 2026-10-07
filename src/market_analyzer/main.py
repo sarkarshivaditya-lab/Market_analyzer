@@ -7,7 +7,7 @@ from market_analyzer.data.market import MarketData
 from market_analyzer.data.yahoo import YahooMarketData
 from market_analyzer.data.zerodha import ZerodhaMarketData
 from market_analyzer.data.local import NSELocalMarketData, NSELocalMarketStore
-from market_analyzer.data.universe import UniverseConfig, eligible_tickers_on
+from market_analyzer.data.universe import UniverseConfig, eligible_tickers_by_date, eligible_tickers_on
 from market_analyzer.data.macro import MacroData
 from market_analyzer.data.context import MarketContextData
 from market_analyzer.data.fundamentals import merge_fundamentals_asof
@@ -120,9 +120,10 @@ def run(symbols=None,start="2015-01-01",end=None,horizons=(1,5,20),min_train_day
     dates=pd.to_datetime(features["date"])
     windows=list(walk_forward_windows(dates,min_train_days=min_train_days,test_days=test_days,horizon_days=max(horizons)))
     if not windows: raise ValueError("Not enough history for the requested walk-forward configuration.")
+    pit_eligibility=eligible_tickers_by_date(historical_market,config=universe_config) if provider=="nse_local" else None
     oos_parts=[]
     for window in windows:
-        train,test=split_frame(features,window,universe_frame=historical_market,universe_config=universe_config)
+        train,test=split_frame(features,window,universe_frame=historical_market,universe_config=universe_config,eligibility_frame=pit_eligibility)
         base=MultiHorizonForecaster(horizons=horizons).fit(train,usable,train_end=window.train_end)
         pred=base.predict(test)
         risk_features=[c for c in ["return_1d","return_5d","volatility_20d","drawdown_60d","turbulence"] if c in train.columns]
