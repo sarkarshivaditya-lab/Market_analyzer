@@ -216,3 +216,27 @@ The development branch contains Checkpoint 1 research diagnostics/baseline code 
 5. Then continue to point-in-time universe/context implementation.
 
 Do not retrain the expanded dataset yet.
+
+
+## Checkpoint 3 — Full NSE historical panel and point-in-time context (2026-10-08)
+
+Implemented the next survivorship-bias correction layer:
+- `NSELocalMarketStore.tickers()` exposes the complete local security universe.
+- Registry-mode runs now load the full NSE historical panel for research instead of restricting the feature panel to the final-date 1,133 survivors.
+- Walk-forward `split_frame()` now evaluates eligibility against that full historical panel at each train/test cutoff.
+- Final production training is restricted back to the eligible universe at the latest training cutoff.
+- Final portfolio construction is restricted to the current resolved production symbols, so expanding the research panel does not silently expand the live decision universe.
+- `MarketContextData.fetch()` can now consume the local historical panel directly.
+- Local context filters securities by their point-in-time history age before calculating breadth/dispersion, preventing future-listed securities from contributing to earlier context.
+- Dashboard chart generation remains restricted to the resolved production symbols rather than all historical securities.
+
+This removes the major final-date survivor-panel dependency from the historical walk-forward input. It does not yet constitute the complete universe methodology: context currently enforces point-in-time history availability, while the full liquidity/coverage eligibility rule is still handled by fold-level `split_frame()`. Fundamentals/news timestamp causality and fold-specific crash/regime/anomaly models remain separate blockers.
+
+New regression coverage:
+- `tests/test_context.py` verifies a later-listed security does not contribute to earlier local context.
+
+Required validation after pulling:
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src pytest tests/test_context.py tests/test_walk_forward.py tests/test_universe.py tests/test_point_in_time_audit.py -q`
+- Then run the broader regression suite before generating a new research report.
+
+Do not retrain the expanded dataset yet.
