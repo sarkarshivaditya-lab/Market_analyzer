@@ -256,3 +256,60 @@ The complete historical liquidity/coverage eligibility rule is now applied to lo
 
 Next work should continue the remaining causal-data audits before any model architecture changes or expanded retraining.
 
+
+
+## Checkpoint 4 — Fold-specific risk outputs and walk-forward PIT row filtering (2026-10-08)
+
+Implemented the next leakage-control layer for historical ensemble evaluation:
+- Historical walk-forward folds now fit crash-risk, regime, and anomaly models separately inside each fold using only that fold's training data.
+- Their predictions are merged into that fold's OOS base forecasts before historical ensemble meta-features are constructed.
+- This removes the previous methodological gap where historical ensemble meta-features omitted these risk outputs because only final/latest production risk models existed.
+- split_frame() now applies date/ticker-level PIT eligibility, not merely the ticker set eligible at the fold boundary. This prevents a ticker that becomes eligible during/near a fold from being retroactively inserted into earlier rows.
+- A precomputed eligibility_frame can be supplied by main.py to avoid recomputing the PIT eligibility panel for every fold.
+- Split train/test dates are normalized before the PIT merge so string-date feature frames and timestamp eligibility panels cannot fail on dtype mismatch.
+
+Relevant commits:
+- 4397409 — add fold-specific crash/regime/anomaly OOS outputs to historical ensemble inputs
+- 36d14b6 — apply date-aware PIT eligibility inside walk-forward splits
+- 94c2cfa — precompute PIT eligibility in main and pass it into split_frame
+- 7bd6f11 / c62ef9a / 53e1da0 / 3eb6d35 — PIT walk-forward regression coverage and test corrections
+- 246348d — normalize train/test dates before PIT eligibility merge
+
+Validation:
+- Full regression suite currently passes: 130 passed in 5.85s.
+- The research report has NOT yet completed successfully after these changes.
+
+### Current research-report blocker
+
+PYTHONPATH=src python scripts/generate_research_report.py still fails during the first walk-forward forecaster fit with:
+ValueError: Not enough observations to train the forecaster.
+
+The failure is now downstream of the corrected PIT row filtering, not the previous date-dtype merge error.
+
+Important diagnosis:
+- ReturnForecaster.fit() requires at least 100 complete feature/target observations.
+- It also purges rows whose forward target extends beyond the fold train_end.
+- The first walk-forward fold currently begins with min_train_days=756, while the PIT universe itself requires min_history_sessions=756.
+- Applying the exact date-level PIT eligibility mask leaves insufficient complete rows for the first fold after feature warm-up and target purging.
+- Therefore the current walk-forward initialization is too early relative to the combined requirements of feature warm-up, PIT universe history, and forecast horizon.
+
+Do NOT fix this by lowering the 100-observation guard, disabling PIT filtering, or weakening the universe rules. That would make the research evaluation less trustworthy.
+
+### Next session — exact next step
+
+Make walk-forward initialization explicitly account for the required warm-up:
+1. Determine the minimum date/history required by the feature set.
+2. Add the PIT universe history requirement.
+3. Account for the maximum forecast horizon/target purge.
+4. Adjust walk_forward_windows() or its caller so the first training fold starts only when a valid PIT-eligible training sample exists.
+5. Keep this initialization rule explicit and auditable in the research report rather than silently shifting dates.
+6. Re-run the full regression suite.
+7. Run scripts/generate_research_report.py.
+8. Inspect the resulting fold count and OOS window before interpreting model performance.
+9. Only after this succeeds continue the remaining causal audits: historical news availability, sector-context survivor bias, residual market-data anomalies, and calibration/evaluation separation.
+
+Current status:
+- Tests: clean at 130/130.
+- Expanded retraining: still blocked.
+- No architecture/hyperparameter changes should be made yet.
+- Do not claim new OOS performance from the fold-specific risk integration until the research report completes successfully.
