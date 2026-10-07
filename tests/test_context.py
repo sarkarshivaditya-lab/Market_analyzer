@@ -1,5 +1,6 @@
 import pandas as pd
 from market_analyzer.data.context import MarketContextData
+from market_analyzer.data.universe import UniverseConfig
 from market_analyzer.features.context import enrich_context
 
 def test_context_merge_preserves_market_rows():
@@ -48,7 +49,7 @@ def test_local_context_applies_point_in_time_liquidity_eligibility():
         rows.append({"date":day,"tic":"LIQUID","open":100+i,"high":101+i,"low":99+i,"close":100+i,"volume":100000})
         rows.append({"date":day,"tic":"ILLIQUID","open":100-i,"high":101-i,"low":99-i,"close":100-i,"volume":1000})
     raw=pd.DataFrame(rows)
-    config=__import__("market_analyzer.data.universe",fromlist=["UniverseConfig"]).UniverseConfig(
+    config=UniverseConfig(
         min_history_sessions=3,
         min_coverage_ratio=0.70,
         min_median_turnover=5_000_000,
