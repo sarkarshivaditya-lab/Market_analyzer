@@ -189,6 +189,24 @@ Ponytail is adapted rather than copied wholesale. Agent/plugin-specific host int
 
 Source repository: https://github.com/DietrichGebert/ponytail (MIT). Source revision reviewed: main branch on 2026-10-07.
 
+
+## Checkpoint 2 — Fold-level point-in-time universe integration (2026-10-07)
+
+Implemented the first causal universe integration layer:
+- `training.walk_forward.split_frame()` now accepts an optional universe reference and evaluates eligible tickers separately at each fold's train and test cutoff.
+- `main.py` now passes the feature frame as the fold universe reference, so future rows cannot make a ticker eligible before its fold cutoff.
+- Added regression coverage proving a newly appearing ticker is absent from the earlier training fold and can enter only when eligible at the later test cutoff.
+
+This is an important correction but not yet the final survivorship-bias solution. The current feature frame still originates from the selected symbol universe, so securities completely absent from that input universe (for example historical securities that later disappeared) cannot be recovered by fold filtering. The next context/data step must therefore construct the historical security panel from the full NSE store and replace the static survivor-based cross-sectional context with fold/as-of context. Expanded retraining remains blocked until that is complete.
+
+Relevant commits:
+- 82e67e2 — fold-level point-in-time universe support
+- d983a38 — regression test
+- 1d3a92c — integrate PIT universe into main walk-forward path
+- 200ffad — correct PIT timing fixture
+
+Validation must be run locally after pulling these commits before treating the checkpoint as complete.
+
 ## Exact resumption point
 The development branch contains Checkpoint 1 research diagnostics/baseline code and has passed its targeted and full regression suites. Before merging to main:
 1. Run the current application path again after the final branch state.
