@@ -21,7 +21,6 @@ class MarketContextData:
             config=universe_config or UniverseConfig(min_history_sessions=int(min_history_sessions))
             eligibility=eligible_tickers_by_date(raw,config=config)
             raw=raw[(raw["date"]>=pd.Timestamp(start))&(raw["date"]<pd.Timestamp(end))].copy()
-            raw=raw.merge(eligibility,on=["date","tic"],how="inner")
         raw["date"]=pd.to_datetime(raw["date"])
         raw["tic"]=raw["tic"].astype("string").str.strip().str.upper()
         raw["close"]=pd.to_numeric(raw["close"],errors="coerce")
@@ -32,6 +31,10 @@ class MarketContextData:
             raw=raw[raw["history_sessions"]>=int(min_history_sessions)].copy()
         prices=raw.pivot_table(index="date",columns="tic",values="close",aggfunc="last").sort_index()
         r1=prices.pct_change(); r5=prices.pct_change(5)
+        if market_frame is not None:
+            eligible_index=pd.MultiIndex.from_frame(eligibility[["date","tic"]])
+            r1=r1.stack().where(pd.MultiIndex.from_product([r1.index,r1.columns]).isin(eligible_index)).unstack()
+            r5=r5.stack().where(pd.MultiIndex.from_product([r5.index,r5.columns]).isin(eligible_index)).unstack()
         out=pd.DataFrame(index=prices.index)
         out["breadth_pct_positive_1d"]=(r1>0).mean(axis=1)
         out["breadth_pct_positive_5d"]=(r5>0).mean(axis=1)
