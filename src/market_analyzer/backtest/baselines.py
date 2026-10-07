@@ -60,9 +60,20 @@ def buy_and_hold_backtest(
     px = _price_matrix(prices)
     if px.empty:
         return pd.DataFrame({"return": [], "turnover": [], "cost": [], "equity": []}, index=px.index)
-    weights = pd.DataFrame(0.0, index=px.index, columns=px.columns)
-    weights.iloc[0] = 1.0 / len(px.columns)
-    return _backtest_target_weights(px, weights, transaction_cost_bps, slippage_bps)
+    returns = px.pct_change().fillna(0.0)
+    weights = pd.Series(1.0 / len(px.columns), index=px.columns)
+    rows = []
+    for i, dt in enumerate(px.index):
+        turnover = 1.0 if i == 0 else 0.0
+        cost = turnover * (transaction_cost_bps + slippage_bps) / 10000.0
+        portfolio_return = float((weights * returns.loc[dt]).sum() - cost)
+        end_values = weights * (1.0 + returns.loc[dt])
+        if end_values.sum() > 0:
+            weights = end_values / end_values.sum()
+        rows.append((portfolio_return, turnover, cost))
+    out = pd.DataFrame(rows, index=px.index, columns=["return", "turnover", "cost"])
+    out["equity"] = (1.0 + out["return"]).cumprod()
+    return out
 
 
 def momentum_backtest(
