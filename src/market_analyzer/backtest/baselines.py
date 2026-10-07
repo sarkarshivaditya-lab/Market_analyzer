@@ -24,7 +24,18 @@ def equal_weight_backtest(prices: pd.DataFrame, transaction_cost_bps: float = 5.
 
 
 def buy_and_hold_backtest(prices: pd.DataFrame, transaction_cost_bps: float = 5.0, slippage_bps: float = 2.0) -> pd.DataFrame:
-    return equal_weight_backtest(prices, transaction_cost_bps=transaction_cost_bps, slippage_bps=slippage_bps)
+    px = _price_matrix(prices)
+    returns = px.pct_change().fillna(0.0)
+    if len(px.columns) == 0:
+        return pd.DataFrame({"return": [], "turnover": [], "cost": [], "equity": []}, index=px.index)
+    weights = pd.DataFrame(1.0 / len(px.columns), index=px.index, columns=px.columns)
+    weights.iloc[1:] = weights.iloc[0].to_numpy()
+    held = weights.iloc[[0]].reindex(px.index).ffill()
+    turnover = pd.Series(0.0, index=px.index)
+    turnover.iloc[0] = 1.0
+    cost = turnover * (transaction_cost_bps + slippage_bps) / 10000.0
+    portfolio_return = (held * returns).sum(axis=1) - cost
+    return pd.DataFrame({"return": portfolio_return, "turnover": turnover, "cost": cost, "equity": (1.0 + portfolio_return).cumprod()})
 
 
 def momentum_backtest(
@@ -68,6 +79,7 @@ def momentum_backtest(
 def baseline_report(prices: pd.DataFrame, transaction_cost_bps: float = 5.0, slippage_bps: float = 2.0) -> pd.DataFrame:
     strategies = {
         "equal_weight": equal_weight_backtest(prices, transaction_cost_bps, slippage_bps),
+        "buy_and_hold": buy_and_hold_backtest(prices, transaction_cost_bps, slippage_bps),
         "momentum_top3": momentum_backtest(prices, top_n=3, transaction_cost_bps=transaction_cost_bps, slippage_bps=slippage_bps),
         "momentum_top3_vol_scaled": momentum_backtest(prices, top_n=3, volatility_scaled=True, transaction_cost_bps=transaction_cost_bps, slippage_bps=slippage_bps),
     }
