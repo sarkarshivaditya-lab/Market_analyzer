@@ -56,6 +56,8 @@ def split_frame(
     dates = pd.to_datetime(frame["date"])
     train = frame[(dates >= window.train_start) & (dates <= window.train_end)].copy()
     test = frame[(dates >= window.test_start) & (dates <= window.test_end)].copy()
+    train["date"] = pd.to_datetime(train["date"]).dt.normalize()
+    test["date"] = pd.to_datetime(test["date"]).dt.normalize()
     if universe_frame is not None:
         config = universe_config or UniverseConfig()
         sessions = pd.DatetimeIndex(pd.to_datetime(universe_frame["date"])).normalize().unique().sort_values()
