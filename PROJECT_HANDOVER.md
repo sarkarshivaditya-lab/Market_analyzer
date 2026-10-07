@@ -178,6 +178,17 @@ Dashboard: FastAPI server-rendered workstation with persisted chart-ready state.
 - Keep paper trading separate from live execution.
 - Every material model change requires regression coverage and OOS comparison.
 
+
+## Agent tooling — Ponytail (2026-10-07)
+
+Added project-local AGENTS.md based on DietrichGebert/ponytail's AGENTS.md and skills/ponytail/SKILL.md.
+
+The repository now applies Ponytail's full/default engineering mode to coding work: understand and trace first, then prefer YAGNI, existing code, Python stdlib, platform features, existing dependencies, and finally the minimum new code. Root-cause fixes, deletion over addition, fewest files, and runnable checks are preferred.
+
+Ponytail is adapted rather than copied wholesale. Agent/plugin-specific host integrations and unrelated benchmark/assets were intentionally not added to this application repository. Market Analyzer's existing financial-research requirements remain non-negotiable and override simplification whenever needed for leakage prevention, point-in-time correctness, causal timestamps, OOS evaluation, security, data integrity, auditability, reproducibility, or explicit user requirements.
+
+Source repository: https://github.com/DietrichGebert/ponytail (MIT). Source revision reviewed: main branch on 2026-10-07.
+
 ## Exact resumption point
 The development branch contains Checkpoint 1 research diagnostics/baseline code and has passed its targeted and full regression suites. Before merging to main:
 1. Run the current application path again after the final branch state.
