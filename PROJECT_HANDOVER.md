@@ -243,13 +243,16 @@ Do not retrain the expanded dataset yet.
 
 ## Checkpoint 3 validation — clean regression gate (2026-10-08)
 
-The Checkpoint 3 implementation has now been validated locally after the context regression expectation was corrected:
-- Targeted PIT/context/universe/audit suite: **13 passed in 0.36s**.
-- Full project regression suite: **128 passed in 5.26s**.
-- No known regression remains from the full NSE historical research panel, PIT fold filtering, local point-in-time context, or Ponytail engineering rules.
+The full historical-panel and PIT context implementation has now passed the regression gate:
+- Targeted PIT/context/universe/audit suite: **14 passed in 0.44s**.
+- Full project regression suite: **129 passed in 4.96s**.
+- Final fixes preserve pre-eligibility price history for return calculation, apply the exact cumulative PIT eligibility mask by date/ticker, and exclude ineligible securities from breadth denominators.
+- The future-listing test now confirms that a security becomes eligible only after satisfying the configured history/coverage/liquidity rules.
+- No known regression remains in the PIT universe/context path.
 
 Checkpoint 3 is therefore a clean implementation/testing checkpoint.
 
-The remaining methodological gap is unchanged: local cross-sectional context currently applies point-in-time history availability, but does not yet apply the complete historical liquidity/coverage eligibility rule to each context observation. Expanded retraining remains blocked until this is resolved, along with the separate fundamentals/news causality and fold-specific crash/regime/anomaly requirements.
+The complete historical liquidity/coverage eligibility rule is now applied to local historical context observations, closing the context eligibility gap identified in the earlier validation. Expanded retraining remains blocked only by the separate fundamentals/news causality, fold-specific crash/regime/anomaly, residual data-quality, and calibration requirements.
 
-Next work should tighten the historical context methodology and validate it before any model architecture changes or expanded retraining.
+Next work should continue the remaining causal-data audits before any model architecture changes or expanded retraining.
+
