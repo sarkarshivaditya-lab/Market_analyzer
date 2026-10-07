@@ -1,7 +1,7 @@
 import pandas as pd
 
 from market_analyzer.data.macro import MacroData
-from market_analyzer.training.walk_forward import walk_forward_windows
+from market_analyzer.training.walk_forward import split_frame, walk_forward_windows
 
 
 def test_walk_forward_purges_horizon():
