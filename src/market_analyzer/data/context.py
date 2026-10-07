@@ -32,9 +32,10 @@ class MarketContextData:
         prices=raw.pivot_table(index="date",columns="tic",values="close",aggfunc="last").sort_index()
         r1=prices.pct_change(); r5=prices.pct_change(5)
         if market_frame is not None:
-            eligible_index=pd.MultiIndex.from_frame(eligibility[["date","tic"]])
-            r1=r1.stack().where(pd.MultiIndex.from_product([r1.index,r1.columns]).isin(eligible_index)).unstack()
-            r5=r5.stack().where(pd.MultiIndex.from_product([r5.index,r5.columns]).isin(eligible_index)).unstack()
+            eligible_mask=eligibility.assign(eligible=True).pivot_table(index="date",columns="tic",values="eligible",aggfunc="max",fill_value=False)
+            eligible_mask=eligible_mask.reindex(index=prices.index,columns=prices.columns,fill_value=False).fillna(False)
+            r1=r1.where(eligible_mask)
+            r5=r5.where(eligible_mask)
         out=pd.DataFrame(index=prices.index)
         out["breadth_pct_positive_1d"]=(r1>0).mean(axis=1)
         out["breadth_pct_positive_5d"]=(r5>0).mean(axis=1)
