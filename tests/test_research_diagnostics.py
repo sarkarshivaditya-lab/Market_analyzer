@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from market_analyzer.backtest.baselines import equal_weight_backtest, momentum_backtest
+from market_analyzer.backtest.baselines import buy_and_hold_backtest, equal_weight_backtest, momentum_backtest
 from market_analyzer.backtest.diagnostics import (
     base_forecaster_report,
     build_research_diagnostics,
@@ -60,3 +60,20 @@ def test_build_diagnostics():
     d = build_research_diagnostics(_signals(), _prices(), bt, bt["return"])
     assert "folds" in d
     assert "turnover" in d
+
+
+def test_buy_and_hold_has_no_rebalancing_turnover():
+    bt = buy_and_hold_backtest(_prices())
+    assert bt["turnover"].iloc[0] == 1.0
+    assert bt["turnover"].iloc[1:].sum() == 0.0
+
+
+def test_base_forecaster_report_uses_each_horizon():
+    p = _prices()
+    f = p[["date", "tic"]].copy()
+    f["expected_return_1d"] = 0.001
+    f["expected_return_5d"] = 0.005
+    f["expected_return_20d"] = 0.02
+    out = base_forecaster_report(f, p)
+    assert set(out["horizon"]) == {1, 5, 20}
+    assert out.loc[out["horizon"] == 1, "observations"].iloc[0] > out.loc[out["horizon"] == 20, "observations"].iloc[0]
