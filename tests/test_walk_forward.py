@@ -1,7 +1,7 @@
 import pandas as pd
 
 from market_analyzer.data.macro import MacroData
-from market_analyzer.training.walk_forward import split_frame, walk_forward_windows
+from market_analyzer.training.walk_forward import WalkForwardWindow, split_frame, walk_forward_windows
 
 
 def test_walk_forward_purges_horizon():
@@ -93,5 +93,7 @@ def test_split_frame_filters_rows_before_pit_eligibility_date():
     assert train["date"].min() == sessions[2]
     assert train["date"].max() == sessions[5]
     assert train["tic"].unique().tolist() == ["OLD"]
-    assert test["tic"].unique().tolist() == ["LATE"]
-    assert test["date"].min() == sessions[8]
+    assert test["tic"].unique().tolist() == ["OLD", "LATE"]
+    late_test = test.loc[test["tic"] == "LATE"]
+    assert late_test["date"].min() == sessions[6]
+    assert late_test["date"].max() == sessions[8]
