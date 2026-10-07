@@ -80,3 +80,28 @@ def test_base_forecaster_report_uses_each_horizon():
     out = base_forecaster_report(f, p)
     assert set(out["horizon"]) == {1, 5, 20}
     assert out.loc[out["horizon"] == 1, "observations"].iloc[0] > out.loc[out["horizon"] == 20, "observations"].iloc[0]
+
+
+def test_equal_weight_rebalances_as_prices_drift():
+    dates = pd.date_range("2020-01-01", periods=4, freq="D")
+    prices = pd.DataFrame({
+        "date": list(dates) * 2,
+        "tic": ["A"] * 4 + ["B"] * 4,
+        "close": [100.0, 110.0, 121.0, 133.1, 100.0, 100.0, 100.0, 100.0],
+    })
+    bt = equal_weight_backtest(prices)
+    assert bt["turnover"].iloc[0] == 1.0
+    assert bt["turnover"].iloc[1:].sum() > 0.0
+
+
+def test_buy_and_hold_differs_from_rebalanced_equal_weight():
+    dates = pd.date_range("2020-01-01", periods=4, freq="D")
+    prices = pd.DataFrame({
+        "date": list(dates) * 2,
+        "tic": ["A"] * 4 + ["B"] * 4,
+        "close": [100.0, 110.0, 121.0, 133.1, 100.0, 100.0, 100.0, 100.0],
+    })
+    equal_weight = equal_weight_backtest(prices)
+    buy_hold = buy_and_hold_backtest(prices)
+    assert buy_hold["turnover"].iloc[1:].sum() == 0.0
+    assert equal_weight["return"].iloc[-1] != buy_hold["return"].iloc[-1]
